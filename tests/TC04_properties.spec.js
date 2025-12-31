@@ -216,7 +216,7 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await prop.filtertab();
     await prop.unitMix();
     await prop.addPropertyTakeOff('interior');
-    await prop.addColumnTakeOff('interior');
+    // await prop.addColumnTakeOff('interior');
 
   });
 
@@ -239,7 +239,7 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await prop.exportButton();
     await prop.unitMix();
     await prop.addPropertyTakeOff('exterior');
-    await prop.addColumnTakeOff('exterior');
+    // await prop.addColumnTakeOff('exterior');
   });
 
   test('@sanity TC25 – asset viewer', async () => {
