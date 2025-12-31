@@ -1,0 +1,68 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+
+    # ---- SAFE .env LOADING ----
+    - name: Load .env file safely
+      run: |
+        echo "Loading environment variables from .env"
+        while IFS='=' read -r key value; do
+          if [[ ! -z "$key" && "$key" != \#* ]]; then
+            echo "Exporting $key"
+            export "$key=$value"
+          fi
+        done < .env
+      shell: bash
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+
+    - name: Run Playwright tests
+      run: npx playwright test
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+
+    # ---- DEPLOY REPORT TO GITHUB PAGES ----
+    - name: Upload report to GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: playwright-report/
+
+  deploy:
+    needs: test
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
