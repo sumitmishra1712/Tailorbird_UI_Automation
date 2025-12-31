@@ -895,8 +895,14 @@ class PropertiesHelper {
                 await this.page.locator('.ag-floating-top div[col-id="floorplan_id"]').dblclick();
                 console.log("✔ Floorplan dropdown opened");
 
-                await this.page.locator('.mantine-ScrollArea-content p').first().waitFor({ state: "visible" });
-                await this.page.locator('.mantine-ScrollArea-content p').first().click();
+                const firstOption = this.page.locator(
+                    '[data-testid="bird-table-select-dropdown"] .mantine-ScrollArea-content > div'
+                ).first();
+
+                await firstOption.waitFor({ state: 'visible' });
+                await firstOption.click();
+                // await this.page.locator('.mantine-ScrollArea-content p').first().waitFor({ state: "visible" });
+                // await this.page.locator('.mantine-ScrollArea-content p').first().click();
                 console.log("✔ First floorplan item selected");
 
                 console.log("\n⏳ Editing unit_mix_quantity...");
@@ -933,8 +939,14 @@ class PropertiesHelper {
                 await this.page.locator('.ag-floating-top div[col-id="building_type_id"]').dblclick();
                 console.log("✔ Building Type dropdown opened");
 
-                await this.page.locator('.mantine-ScrollArea-content p').first().waitFor({ state: "visible" });
-                await this.page.locator('.mantine-ScrollArea-content p').first().click();
+                const firstOption = this.page.locator(
+                    '[data-testid="bird-table-select-dropdown"] .mantine-ScrollArea-content > div'
+                ).first();
+
+                await firstOption.waitFor({ state: 'visible' });
+                await firstOption.click();
+                // await this.page.locator('.mantine-ScrollArea-content p').first().waitFor({ state: "visible" });
+                // await this.page.locator('.mantine-ScrollArea-content p').first().click();
                 console.log("✔ First building type selected");
 
                 console.log("\n⏳ Editing unit_mix_quantity...");
