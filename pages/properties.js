@@ -879,10 +879,10 @@ class PropertiesHelper {
             console.log("Clicked add icon");
 
             console.log(`Step 2 → Waiting for button 'Add Property_${tab}_takeoff' ...`);
-            await this.page.locator(`button:has-text('Add Property_${tab}_takeoff')`).waitFor({ state: "visible" });
+            await this.page.locator(`button:has-text('Add Property ${tab} Takeoff')`).waitFor({ state: "visible" });
 
             console.log(`➡ Clicking Add Property_${tab}_takeoff`);
-            await this.page.locator(`button:has-text('Add Property_${tab}_takeoff')`).click();
+            await this.page.locator(`button:has-text('Add Property ${tab} Takeoff')`).click();
             console.log("✔ Navigation to Add Takeoff modal triggered");
 
             // ===================== INTERIOR =====================
