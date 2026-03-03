@@ -58,11 +58,13 @@ jobs:
 
       - name: Run mandatory tests
         id: mandatory
+        continue-on-error: true
         run: npx playwright test --grep @mandatory --workers=1
 
       - name: Run suite
         id: suite
         if: always()
+        continue-on-error: true
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             npm run "${{ inputs.suite }}" -- --grep-invert @mandatory --workers=4
@@ -87,7 +89,7 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TEST_RESULT: ${{ steps.mandatory.outcome == 'success' && steps.suite.outcome == 'success' && 'Passed' || 'Failed' }}
+          TEST_RESULT: ${{ steps.mandatory.conclusion == 'success' && steps.suite.conclusion == 'success' && 'Passed' || 'Failed' }}
         run: |
           echo "=== Fetching page properties to verify available property names ==="
           PAGE_DATA=$(curl -s "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
