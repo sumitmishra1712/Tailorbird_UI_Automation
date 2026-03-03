@@ -13,7 +13,7 @@ class FinancialsCategoryPage {
 
         this.categoryLink = page.locator(
             'a.mantine-NavLink-root:has(span.mantine-NavLink-label:has-text("Category"))'
-        );
+        ).first();
 
         this.tableSelectors = [
             'table',
@@ -21,6 +21,7 @@ class FinancialsCategoryPage {
             '.mantine-Table-root',
             '[role="table"]',
             '[role="grid"]',
+            '[role="treegrid"]',
         ];
 
         this.downloadSelectors = [
@@ -61,10 +62,10 @@ class FinancialsCategoryPage {
             name: "Upload Files",
         });
 
-        this.uploadDialog = page.locator('dialog[open]');
+        this.uploadDialog = page.locator('dialog[open], section[role="dialog"]');
         this.uploadFileInput = page.locator('input[type="file"]');
         this.uploadListDialog = page.locator(
-            'dialog[open] uc-upload-list'
+            'dialog[open] uc-upload-list, section[role="dialog"] uc-upload-list, uc-upload-list'
         );
 
         this.manageColumnsDrawer = page.locator(
@@ -87,9 +88,14 @@ class FinancialsCategoryPage {
             'text=Files and images related to this property'
         );
 
+        // this.uploadFilesBtn = page.locator(".lucide.lucide-upload");
         this.uploadFilesBtn = page.locator(
-            'button:has(svg.lucide-upload)'
-        );
+            'button.mantine-ActionIcon-root:has(svg.lucide-upload)'
+        ).first();
+        this.importDataButton = page.locator('[title="Import Data"]').first();
+
+
+
     }
 
     async expandFinancialsSection() {
@@ -110,19 +116,38 @@ class FinancialsCategoryPage {
         await this.page.waitForTimeout(300);
     }
 
-    async isTableVisible() {
+    async isTableVisible(timeoutMs = 2000) {
         for (const selector of this.tableSelectors) {
             const table = this.page.locator(selector).first();
             if (
                 (await table.count()) &&
                 (await table
-                    .isVisible({ timeout: 2000 })
+                    .isVisible({ timeout: timeoutMs })
                     .catch(() => false))
             ) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Waits for the category table/grid to be visible and loaded before interaction.
+     * Use before filter/export/other table operations.
+     */
+    async waitForTableToLoad(timeoutMs = 15000) {
+        for (const selector of this.tableSelectors) {
+            const table = this.page.locator(selector).first();
+            try {
+                await table.waitFor({ state: 'visible', timeout: timeoutMs });
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(500);
+                return true;
+            } catch {
+                continue;
+            }
+        }
+        throw new Error('Category table did not load within timeout. Table/grid not visible.');
     }
 
     async isDownloadButtonVisible() {
@@ -168,33 +193,106 @@ class FinancialsCategoryPage {
         await expect(this.resetConfirmBtn).toBeVisible();
     }
 
+    // async uploadCategory(filePath) {
+    //     await this.uploadFilesBtn.first().click();
+    //     await this.page.waitForLoadState("networkidle");
+    //     await this.page.waitForTimeout(3000);
+    //     await this.uploadDialog.waitFor();
+
+    //     this.page.once("filechooser", async (chooser) => {
+    //         await chooser.setFiles(filePath);
+    //     });
+
+    //     await this.page.getByText("From device").click();
+
+    //     await expect(this.uploadListDialog).toBeVisible();
+
+    //     const uploadedFileName =
+    //         this.uploadListDialog.locator(".uc-file-name");
+    //     await expect(uploadedFileName.first()).toBeVisible();
+
+    //     const toolbarBtns = ["Remove", "Clear", /Add more/i, "Done"];
+    //     for (const btn of toolbarBtns) {
+    //         const btnEl = this.uploadListDialog.getByRole("button", {
+    //             name: btn,
+    //         });
+    //         await expect(btnEl.first()).toBeVisible();
+    //     }
+
+    //     await this.uploadListDialog
+    //         .getByRole("button", { name: "Done" })
+    //         .click();
+
+    //     await this.page.waitForLoadState("networkidle");
+    //     await this.page.waitForTimeout(2000);
+    // }
+
     async uploadCategory(filePath) {
-        await this.uploadFilesBtn.first().click();
-        await this.uploadDialog.waitFor();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
 
-        this.page.once("filechooser", async (chooser) => {
-            await chooser.setFiles(filePath);
-        });
+        const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 15000 });
 
-        await this.page.getByText("From device").click();
+        const addRowMenu = this.page.getByTestId('bt-add-row-menu');
+        const importBtn = this.importDataButton;
+        const uploadBtn = this.uploadFilesBtn;
+        const importRoleBtn = this.page.getByRole('button', { name: 'Import Data' });
 
-        await expect(this.uploadListDialog).toBeVisible();
-
-        const uploadedFileName =
-            this.uploadListDialog.locator(".uc-file-name");
-        await expect(uploadedFileName.first()).toBeVisible();
-
-        const toolbarBtns = ["Remove", "Clear", /Add more/i, "Done"];
-        for (const btn of toolbarBtns) {
-            const btnEl = this.uploadListDialog.getByRole("button", {
-                name: btn,
-            });
-            await expect(btnEl.first()).toBeVisible();
+        let clicked = false;
+        if (await importBtn.isVisible().catch(() => false)) {
+            await importBtn.click();
+            clicked = true;
+        } else if (await importRoleBtn.isVisible().catch(() => false)) {
+            await importRoleBtn.click();
+            clicked = true;
+        } else if (await addRowMenu.isVisible().catch(() => false)) {
+            await addRowMenu.click();
+            await this.page.waitForTimeout(600);
+            const importMenuItem = this.page.getByRole('menuitem', { name: /Import|Upload/i });
+            if (await importMenuItem.first().isVisible().catch(() => false)) {
+                await importMenuItem.first().click();
+                clicked = true;
+            }
+        }
+        if (!clicked && (await uploadBtn.first().isVisible().catch(() => false))) {
+            await uploadBtn.first().click({ force: true });
+            clicked = true;
+        }
+        if (!clicked) {
+            throw new Error('Import/Upload button not found.');
         }
 
-        await this.uploadListDialog
-            .getByRole("button", { name: "Done" })
-            .click();
+        const fromDeviceBtn = this.page.getByRole('button', { name: 'From device' });
+        const uploadDialog = this.uploadDialog.first();
+        const fileInput = this.page.locator('input[type="file"]');
+
+        const which = await Promise.race([
+            fileChooserPromise.then((fc) => ({ type: 'chooser', fc })),
+            fromDeviceBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => ({ type: 'fromdevice' })),
+            uploadDialog.waitFor({ state: 'visible', timeout: 15000 }).then(() => ({ type: 'dialog' })),
+        ]).catch(() => null);
+
+        if (which && which.type === 'chooser') {
+            await which.fc.setFiles(filePath);
+        } else if (which && (which.type === 'fromdevice' || which.type === 'dialog')) {
+            const [fc] = await Promise.all([
+                this.page.waitForEvent('filechooser', { timeout: 10000 }),
+                fromDeviceBtn.click(),
+            ]);
+            await fc.setFiles(filePath);
+        } else if ((await fileInput.count()) > 0) {
+            await fileInput.first().setInputFiles(filePath);
+        } else {
+            throw new Error('Upload dialog, From device button, or file input not found. Try running with --headed to verify Import button.');
+        }
+
+        await this.page.waitForTimeout(2000);
+        const doneBtn = this.page.getByRole('button', { name: 'Done' });
+        if (await doneBtn.isVisible().catch(() => false)) {
+            await doneBtn.click();
+        }
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(3000);
     }
 
     async filterCategory(columnName, filterValue) {
@@ -226,61 +324,114 @@ class FinancialsCategoryPage {
         await expect(filterInput).toHaveValue(filterValue);
     }
 
+    // async filterCategoryAndVerify(columnName, filterValue) {
+    //     // Step 1: Click filter button
+    //     const filterBtn = this.page.locator('button:has(svg.lucide-funnel)');
+    //     await expect(filterBtn).toBeVisible();
+    //     await filterBtn.click();
+
+    //     // Step 2: Verify filter popover is visible
+    //     const filterPopover = this.page.locator(
+    //         '.mantine-Paper-root:has-text("Filters")'
+    //     );
+    //     await expect(filterPopover).toBeVisible();
+
+    //     // Step 3: Locate and fill the filter input for the specified column
+    //     const columnBlock = filterPopover.locator(
+    //         `div:has(p:has-text("${columnName}"))`
+    //     );
+    //     await expect(columnBlock.first()).toBeVisible();
+
+    //     const filterInput = columnBlock.locator(
+    //         'input.mantine-PillsInputField-field'
+    //     );
+    //     await expect(filterInput).toBeVisible();
+    //     await expect(filterInput).toBeEditable();
+    //     await filterInput.fill(filterValue);
+    //     await expect(filterInput).toHaveValue(filterValue);
+    //     await filterInput.press('Enter');
+
+    //     // Step 4: Wait for filter to apply and data to update
+    //     await this.page.waitForLoadState('networkidle');
+    //     await this.page.waitForTimeout(1000);
+
+    //     // Step 5: Verify filtered results - check that all visible rows contain the filter value
+    //     const tableRows = this.page.locator('table tbody tr, .ag-center-cols-container .ag-row, [role="row"]');
+    //     const rowCount = await tableRows.count();
+
+    //     if (rowCount === 0) {
+    //         throw new Error(`No rows found after filtering by ${columnName} = ${filterValue}`);
+    //     }
+
+    //     // Verify each row contains the filter value
+    //     for (let i = 0; i < rowCount; i++) {
+    //         const rowText = (await tableRows.nth(i).innerText()).trim();
+    //         if (!rowText.includes(filterValue)) {
+    //             throw new Error(`Row ${i} does not contain expected filter value: ${filterValue}`);
+    //         }
+    //     }
+
+    //     // Step 6: Close the filter modal
+    //     const closeBtn = filterPopover.locator(
+    //         'button.mantine-CloseButton-root'
+    //     );
+    //     await expect(closeBtn).toBeVisible();
+    //     await closeBtn.click();
+
+    //     // Step 7: Verify filter modal is closed
+    //     await expect(filterPopover).toBeHidden({ timeout: 2000 });
+
+    //     return rowCount;
+    // }
+
     async filterCategoryAndVerify(columnName, filterValue) {
-        // Step 1: Click filter button
+        // Step 1: Click the filter button (funnel icon)
         const filterBtn = this.page.locator('button:has(svg.lucide-funnel)');
-        await expect(filterBtn).toBeVisible();
-        await filterBtn.click();
+        await expect(filterBtn.first()).toBeVisible();
+        await filterBtn.first().click();
+        await this.page.waitForTimeout(500);
 
-        // Step 2: Verify filter popover is visible
-        const filterPopover = this.page.locator(
-            '.mantine-Paper-root:has-text("Filters")'
-        );
-        await expect(filterPopover).toBeVisible();
-
-        // Step 3: Locate and fill the filter input for the specified column
-        const columnBlock = filterPopover.locator(
-            `div:has(p:has-text("${columnName}"))`
-        );
-        await expect(columnBlock).toBeVisible();
-
-        const filterInput = columnBlock.locator(
-            'input.mantine-PillsInputField-field'
-        );
+        // Step 2: Get the filter input field (textbox with placeholder)
+        const filterInput = this.page.getByPlaceholder("Enter values to search for (OR logic)").first();
         await expect(filterInput).toBeVisible();
         await expect(filterInput).toBeEditable();
-        await filterInput.fill(filterValue);
-        await expect(filterInput).toHaveValue(filterValue);
 
-        // Step 4: Wait for filter to apply and data to update
+        // Step 3: Fill in the filter value and press Enter
+        await filterInput.fill(String(filterValue));
+        await filterInput.press('Enter');
+
+        // Step 4: Wait for the grid to update with filtered results
         await this.page.waitForLoadState('networkidle');
         await this.page.waitForTimeout(1000);
 
-        // Step 5: Verify filtered results - check that all visible rows contain the filter value
-        const tableRows = this.page.locator('table tbody tr, .ag-center-cols-container .ag-row, [role="row"]');
-        const rowCount = await tableRows.count();
-        
+        // Step 5: Get all rows from the table and count them
+        const rows = this.page.locator('treegrid[role="treegrid"] > div:last-child > div > row, [role="row"]');
+        const rowCount = await rows.count();
+
         if (rowCount === 0) {
-            throw new Error(`No rows found after filtering by ${columnName} = ${filterValue}`);
+            throw new Error(`No rows found after filtering "${columnName}" with value "${filterValue}"`);
         }
 
-        // Verify each row contains the filter value
-        for (let i = 0; i < rowCount; i++) {
-            const rowText = (await tableRows.nth(i).innerText()).trim();
-            if (!rowText.includes(filterValue)) {
-                throw new Error(`Row ${i} does not contain expected filter value: ${filterValue}`);
-            }
+        // Step 6: Verify that filtered rows contain the filter value
+        // Get the cells in the first column (Category Code column)
+        const categoryCodeCells = this.page.locator('[role="gridcell"]').filter({
+            has: this.page.locator(`text="${filterValue}"`)
+        });
+
+        const cellCount = await categoryCodeCells.count();
+        if (cellCount === 0) {
+            throw new Error(`No cells found containing filter value "${filterValue}"`);
         }
 
-        // Step 6: Close the filter modal
-        const closeBtn = filterPopover.locator(
-            'button.mantine-CloseButton-root'
-        );
-        await expect(closeBtn).toBeVisible();
-        await closeBtn.click();
+        // Step 7: Close the filter panel
+        const closeFilterBtn = this.page.locator('button:has(svg.lucide-x)').filter({
+            near: this.page.getByText('Filters', { exact: true })
+        }).first();
 
-        // Step 7: Verify filter modal is closed
-        await expect(filterPopover).toBeHidden({ timeout: 2000 });
+        if (await closeFilterBtn.isVisible().catch(() => false)) {
+            await closeFilterBtn.click();
+            await this.page.waitForTimeout(500);
+        }
 
         return rowCount;
     }

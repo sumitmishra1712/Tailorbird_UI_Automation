@@ -12,7 +12,11 @@ class LoginPage {
     this.continueButton = page.locator('button[type="submit"]:has-text("Continue")');
     this.signInButton = page.locator('button[name="intent"]:has-text("Sign in")');
     this.errorMessage = page.locator('.error, .form-error');
-    this.organizationSelect = page.locator("button:has-text('Tailorbird_QA_Automations')");
+    // this.organizationSelect = page.locator("button:has-text('Tailorbird_QA_Automations')");
+    this.organizationSelect = page
+      .locator('.ak-OrgSelection')
+      .getByRole('button', { name: 'Tailorbird_QA_Automations' });
+
   }
 
   /**
@@ -45,16 +49,24 @@ class LoginPage {
     await this.passwordInput.fill(password);
 
     Logger.step('Step 4: Clicking Sign in...');
-    await Promise.all([
-      this.page.waitForNavigation({ waitUntil: 'networkidle' }),
-      this.signInButton.click()
-    ]);
+    // await Promise.all([
+    //   this.page.waitForNavigation({ waitUntil: 'networkidle' }),
+    //   this.signInButton.click()
+    // ]);
+
+    await this.signInButton.click();
+    // await this.page.waitForURL(/organization-selection/, { timeout: 30000 });
+
+
+    if (email !== 'admin_1771393239035@yopmail.com') {
+      await this.page.waitForURL(/organization-selection/, { timeout: 30000 });
+      Logger.step('Step 6: Verifying successful login...');
+      await this.page.waitForTimeout(5000);
+      await this.organizationSelect.click();
+    }
 
     Logger.step('Step 6: Verifying successful login...');
-    await this.page.waitForTimeout(5000);
-    await this.organizationSelect.click();
-
-    Logger.step('Step 6: Verifying successful login...');
+    await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(5000);
     await expect(this.page).toHaveURL(process.env.DASHBOARD_URL || /financials\/capex/);
     Logger.success('✅ User successfully logged in and redirected to dashboard.');

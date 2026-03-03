@@ -1,0 +1,146 @@
+name: Notion Ticket Watcher
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  watch-notion:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Watch Notion and trigger Playwright
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: Harshalogy
+          REPO: Tailorbird_ui_automation
+          WORKFLOW_FILE: playwright.yml
+        run: |
+          set -e
+
+          echo "=== Querying Notion database ==="
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.notion.com/v1/databases/$NOTION_DATABASE_ID/query" \
+            -H "Authorization: Bearer $NOTION_TOKEN" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "filter": {
+                "and": [
+                  {
+                    "property": "Status",
+                    "status": { "equals": "Done" }
+                  },
+                  {
+                    "or": [
+                      { "property": "CI Trigger", "select": { "equals": "Not triggered" } },
+                      { "property": "CI Trigger", "select": { "equals": "Not triggered (default)" } }
+                    ]
+                  }
+                ]
+              }
+            }')
+
+          HTTP_BODY=$(echo "$RESPONSE" | head -n -1)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          echo "Notion API HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Notion API error response:"
+            echo "$HTTP_BODY" | jq '.' 2>/dev/null || echo "$HTTP_BODY"
+            exit 1
+          fi
+
+          COUNT=$(echo "$HTTP_BODY" | jq '.results | length')
+          echo "Found $COUNT ticket(s) matching Status=Done and CI Trigger=Not triggered"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo ""
+            echo "=== DEBUG: Fetching database schema to verify property names and types ==="
+            DB_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://api.notion.com/v1/databases/$NOTION_DATABASE_ID" \
+              -H "Authorization: Bearer $NOTION_TOKEN" \
+              -H "Notion-Version: 2022-06-28")
+            DB_BODY=$(echo "$DB_RESPONSE" | head -n -1)
+            echo "$DB_BODY" | jq '.properties | to_entries[] | {name: .key, type: .value.type, select_options: (.value.select.options // .value.status.options // []) | map(.name)}' 2>/dev/null || echo "$DB_BODY"
+            echo ""
+            echo "No tickets to process. Verify: (1) Property names match exactly (case-sensitive). (2) Status type: use 'status' for Status, 'select' for Select. (3) CI Trigger and Status option values must match exactly."
+            exit 0
+          fi
+
+          RESPONSE="$HTTP_BODY"
+
+          echo "$RESPONSE" | jq -c '.results[]' | while read -r ticket; do
+            PAGE_ID=$(echo "$ticket" | jq -r '.id')
+            TITLE=$(echo "$ticket" | jq -r '.properties.Name.title[0].plain_text // .properties.Name.title[0].text.content // "untitled"')
+
+            echo "=== Processing ticket: $PAGE_ID ($TITLE) ==="
+            echo "Component property raw JSON:"
+            echo "$ticket" | jq '.properties.Component' 2>/dev/null
+
+            COMPONENT=$(echo "$ticket" | jq -r '
+              .properties.Component.select.name //
+              .properties.Component.multi_select[0].name //
+              .properties.Component.rich_text[0].plain_text //
+              .properties.Component.title[0].plain_text //
+              empty
+            ')
+
+            if [ -z "$COMPONENT" ]; then
+              echo "Skipping $PAGE_ID (no component found)"
+              continue
+            fi
+
+            SUITE=$(case "$COMPONENT" in
+              "Login") echo "Component_Login" ;;
+              "Menu") echo "Component_Menu" ;;
+              "Organization") echo "Component_Organization" ;;
+              "Property") echo "Component_Property" ;;
+              "Project") echo "Component_Project" ;;
+              "Job") echo "Component_Job" ;;
+              "Category") echo "Component_Category" ;;
+              "Invoice") echo "Component_Invoice" ;;
+              "Change Order") echo "Component_ChangeOrder" ;;
+              "Approval") echo "Component_Approval" ;;
+              "Budget") echo "Component_Budget" ;;
+              *) echo "RegressionRun" ;;
+            esac)
+
+            echo "Triggering Playwright for $PAGE_ID (Component: $COMPONENT -> $SUITE)"
+
+            GITHUB_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/$OWNER/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches \
+              -d "{
+                \"ref\": \"main\",
+                \"inputs\": {
+                  \"suite\": \"$SUITE\",
+                  \"notion_ticket_id\": \"$PAGE_ID\"
+                }
+              }")
+            GITHUB_CODE=$(echo "$GITHUB_RESPONSE" | tail -n 1)
+            echo "GitHub workflow_dispatch HTTP status: $GITHUB_CODE"
+            if [ "$GITHUB_CODE" != "204" ]; then
+              echo "GitHub API error:"
+              echo "$GITHUB_RESPONSE" | head -n -1
+              exit 1
+            fi
+
+            curl -s -X PATCH "https://api.notion.com/v1/pages/$PAGE_ID" \
+              -H "Authorization: Bearer $NOTION_TOKEN" \
+              -H "Notion-Version: 2022-06-28" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "properties": {
+                  "CI Trigger": {
+                    "select": { "name": "Triggered" }
+                  }
+                }
+              }'
+          done

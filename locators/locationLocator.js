@@ -14,9 +14,9 @@ module.exports = {
 
     // Grid elements
     newRow: 'role=row[name*="—"] >> nth=0',
-    nameCell: '[role="gridcell"][col-id="name"]:visible',
+    nameCell: '[role="gridcell"]:nth-child(1)',
     nameInput: 'input[type="text"]:visible, textarea',
-    deleteRowBtn: 'button[title="Delete Row"]:visible',
+    deleteRowBtn: 'button[title="Delete Row"], button:has(svg.lucide-trash2)',
     deleteConfirmBtn: ".mantine-Popover-dropdown button:has-text('Delete')",
 
     // Add Column Modal
@@ -37,7 +37,7 @@ module.exports = {
 
     // Location Dropdown Select
     locationDropdown: 'input[placeholder="Select location type"]',
-    locationDropdownOption: (type) => `.mantine-Select-option[value="${type}"]`,
+    locationDropdownOption: (type) => `.mantine-Select-option:has-text("${type}")`,
 
     // Table Headers / Rows
     unitHeader: 'text=Unit Name',

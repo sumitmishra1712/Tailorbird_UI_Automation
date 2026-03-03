@@ -10,7 +10,7 @@ test.describe('Tailorbird Login Flow', () => {
   let page;
   let login;
 
-  test('TC01 @sanity User should be able to submit credentials successfully', async ({ browser }) => {
+  test('TC01 @sanity @mandatory @urgent User should be able to submit credentials successfully', async ({ browser }) => {
     Logger.info('Starting Tailorbird login test...');
 
     context = await browser.newContext();
@@ -49,6 +49,33 @@ test.describe('Tailorbird Login Flow', () => {
       await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
       await expect(page).toHaveURL(process.env.DASHBOARD_URL);
       Logger.success('✅ User navigated to dashboard successfully!');
+    });
+
+    await test.step('Close Context', async () => {
+      await context.close();
+    });
+  });
+
+  test('TC @sanity Login with another user successfully', async ({ browser }) => {
+    Logger.info('Starting Tailorbird login test...');
+
+    context = await browser.newContext();
+    page = await context.newPage();
+    login = new LoginPage(page);
+
+    await test.step('Go to login page', async () => {
+      Logger.step('Navigating to login URL...');
+      await page.goto(process.env.LOGIN_URL, { waitUntil: 'load' });
+    });
+
+    await test.step('Perform login', async () => {
+      Logger.step('Using credentials from .env...');
+      await login.login(process.env.NEW_TEST_EMAIL, process.env.NEW_TEST_PASSWORD);
+    });
+
+    await test.step('Store Session', async () => {
+      await page.context().storageState({ path: 'OtherSessionState.json' });
+      Logger.success('💾 Session stored successfully at OtherSessionState.json');
     });
 
     await test.step('Close Context', async () => {

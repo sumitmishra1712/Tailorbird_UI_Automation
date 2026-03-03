@@ -63,8 +63,8 @@ class OrganizationHelper {
   async selectRole(trigger, role) {
     try {
       await trigger.click();
-      const menu = this.page.locator(loc.roleMenu);
-      await menu.locator(`.rt-SelectItem:has-text("${role}")`).click();
+      await this.page.waitForTimeout(500);
+      await this.page.getByRole('option', { name: role }).click();
     } catch (err) {
       this.log(`ERROR selecting role ${role}: ${err}`);
       throw err;
@@ -105,7 +105,7 @@ class OrganizationHelper {
   async validateInvitedBadge(row, email) {
     try {
       this.log(`Validating 'Invited' badge for: ${email}`);
-      const invitedBadge = row.locator(`span.rt-Badge:has-text("${data.invitedBadgeText}")`);
+      const invitedBadge = row.locator(`span.rt-Badge.woswidgets-badge:has-text("${data.invitedBadgeText}")`);
       await expect(invitedBadge).toBeVisible({ timeout: 4000 });
       this.log(`'Invited' badge is visible for: ${email}`);
       return true;
@@ -117,7 +117,7 @@ class OrganizationHelper {
 
   async visibleRowCount() {
     try {
-      const count = await this.page.locator("table tbody tr:visible").count();
+      const count = await this.page.locator("table tbody tr.rt-TableRow").count();
       this.log(`Visible row count: ${count}`);
       return count;
     } catch (err) {
@@ -129,7 +129,7 @@ class OrganizationHelper {
   async getRow(text) {
     try {
       this.log(`Locating row with text: ${text}`);
-      const row = this.page.locator("table tbody tr").filter({ hasText: text }).first();
+      const row = this.page.locator("table tbody tr.rt-TableRow").filter({ hasText: text }).first();
       await row.waitFor({ state: "visible", timeout: 15000 });
       this.log(`Row found for: ${text}`);
       return row;
@@ -268,7 +268,7 @@ class OrganizationHelper {
     try {
       this.log(`Fetching role for: ${email}`);
       const row = await this.getRow(email);
-      const cell = row.locator("td:nth-child(1) span");
+      const cell = row.locator("td.rt-TableCell").first();
       const role = (await cell.innerText()).trim();
       this.log(`Current role for ${email}: ${role}`);
       return role;
@@ -282,7 +282,7 @@ class OrganizationHelper {
     try {
       this.log(`Verifying updated role for ${email}`);
       const row = await this.getRow(email);
-      const cell = row.locator("td").nth(0).locator("span");
+      const cell = row.locator("td.rt-TableCell").first();
       const updatedRole = (await cell.innerText()).trim();
       this.log(`Fetched updated role: ${updatedRole}`);
       await this.page.waitForLoadState("networkidle");

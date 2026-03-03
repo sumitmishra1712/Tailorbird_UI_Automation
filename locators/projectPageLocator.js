@@ -20,7 +20,7 @@ const projectJobLocators = (page) => ({
     addProjectButton: page.getByRole('button', { name: /add project/i }),
 
     projectCardByName: (name) =>
-        page.locator('.mantine-SimpleGrid-root .mantine-Group-root', { hasText: name }),
+        page.locator('.mantine-Group-root:has(p:has-text("' + name + '"))'),
 
     dynamicText: (text) =>
         page.locator(`p:has-text("${text}")`),
@@ -47,7 +47,7 @@ const projectJobLocators = (page) => ({
     jobTypeOption: (type) =>
         page.getByRole('option', { name: new RegExp(type, 'i') }),
 
-    viewDetailsButton: page.locator('button:has-text("View Details")'),
+    viewDetailsButton: page.locator('button[title="View Details"]'),
     editButton: page.getByRole('button', { name: 'Edit' }),
     jobOverviewTitle: page.getByText('Job Overview'),
 
@@ -64,7 +64,7 @@ const projectJobLocators = (page) => ({
     inviteVendorsToBidButton: page.locator("button:has-text('Invite Vendors To Bid')"),
     manageVendorsToggle: page.locator('p:has-text("Manage Vendors")'),
 
-    vendorSearchInput: page.locator('.mantine-Drawer-body input[placeholder="Search..."]'),
+    vendorSearchInput: page.getByRole('dialog').locator('input[placeholder="Search..."]'),
     vendorCheckboxByName: (vendor) =>
         page.locator(`.ag-pinned-left-cols-container div[role="row"]:has-text("${vendor}") .ag-checkbox`),
     inviteSelectedVendorsBtn: page.locator('button:has-text("Invite Selected Vendors to Bid")'),

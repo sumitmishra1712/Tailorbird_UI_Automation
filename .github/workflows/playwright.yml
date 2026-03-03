@@ -1,68 +1,132 @@
 name: Playwright Tests
 
+run-name: >
+  ${{ github.event_name == 'workflow_dispatch'
+      && format('Playwright - {0}', inputs.suite)
+      || 'Playwright - RegressionRun (push/PR)' }}
+
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
+  workflow_dispatch:
+    inputs:
+      suite:
+        required: false
+        default: RegressionRun
+        type: choice
+        options:
+          - RegressionRun
+          - SanityRun
+          - Component_Login
+          - Component_Menu
+          - Component_Organization
+          - Component_Property
+          - Component_Project
+          - Component_Job
+          - Component_Category
+          - Component_Invoice
+          - Component_ChangeOrder
+          - Component_Approval
+          - Component_Budget
+      notion_ticket_id:
+        required: false
+
 jobs:
   test:
-    timeout-minutes: 60
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
 
-    # ---- SAFE .env LOADING ----
-    - name: Load .env file safely
-      run: |
-        echo "Loading environment variables from .env"
-        while IFS='=' read -r key value; do
-          if [[ ! -z "$key" && "$key" != \#* ]]; then
-            echo "Exporting $key"
-            export "$key=$value"
+      - name: Load .env
+        run: |
+          if [ -f .env ]; then
+            cat .env >> $GITHUB_ENV
           fi
-        done < .env
-      shell: bash
 
-    - name: Install dependencies
-      run: npm ci
+      - run: npm ci
+      - run: npx playwright install --with-deps
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - name: Run mandatory tests
+        id: mandatory
+        run: npx playwright test --grep @mandatory --workers=1
 
-    - name: Run Playwright tests
-      run: npx playwright test
+      - name: Run suite
+        id: suite
+        if: always()
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            npm run "${{ inputs.suite }}" -- --grep-invert @mandatory --workers=4
+          else
+            npm run RegressionRun -- --grep-invert @mandatory --workers=4
+          fi
 
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 30
 
-    # ---- DEPLOY REPORT TO GITHUB PAGES ----
-    - name: Upload report to GitHub Pages
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: playwright-report/
+      - uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: playwright-report/
+
+      - name: Update Notion with report
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TEST_RESULT: ${{ steps.mandatory.outcome == 'success' && steps.suite.outcome == 'success' && 'Passed' || 'Failed' }}
+        run: |
+          echo "=== Fetching page properties to verify available property names ==="
+          PAGE_DATA=$(curl -s "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
+            -H "Authorization: Bearer $NOTION_TOKEN" \
+            -H "Notion-Version: 2022-06-28")
+          echo "Available properties:"
+          echo "$PAGE_DATA" | jq '[.properties | keys[]]' 2>/dev/null
+
+          echo ""
+          echo "=== Updating Notion ticket with report URL: $RUN_URL ==="
+          RESULT=$(curl -s -w "\n%{http_code}" -X PATCH "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
+            -H "Authorization: Bearer $NOTION_TOKEN" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"properties\": {
+                \"Test Report\": {
+                  \"url\": \"$RUN_URL\"
+                },
+                \"CI Trigger\": {
+                  \"select\": { \"name\": \"Reported\" }
+                }
+              }
+            }")
+          HTTP_CODE=$(echo "$RESULT" | tail -n 1)
+          echo "Notion PATCH HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Notion error response:"
+            echo "$RESULT" | head -n -1 | jq '.' 2>/dev/null
+          else
+            echo "Notion ticket updated successfully"
+          fi
 
   deploy:
     needs: test
+    if: always()
+    runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-
     steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v4
