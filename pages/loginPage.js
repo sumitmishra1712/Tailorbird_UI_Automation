@@ -66,7 +66,6 @@ class LoginPage {
     }
 
     Logger.step('Step 6: Verifying successful login...');
-    await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(5000);
     await expect(this.page).toHaveURL(process.env.DASHBOARD_URL || /financials\/capex/);
     Logger.success('✅ User successfully logged in and redirected to dashboard.');

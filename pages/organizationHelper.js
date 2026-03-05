@@ -248,12 +248,21 @@ class OrganizationHelper {
       await menu.click();
       await this.page.getByRole("menuitem", { name: data.editRoleDialogTitle }).click();
       const modal = this.page.getByRole("dialog").filter({ hasText: data.editRoleDialogTitle });
-      const roleTrigger = modal.locator('[role="combobox"]');
-      const current = (await roleTrigger.innerText()).trim();
-      const next = current === data.roles[0] ? data.roles[1] : data.roles[0];
+      await modal.waitFor({ state: "visible", timeout: 10000 });
+      const memberCheckbox = modal.getByRole("checkbox", { name: /Member/ });
+      const adminCheckbox = modal.getByRole("checkbox", { name: /Admin/ });
+      const isAdminChecked = await adminCheckbox.isChecked();
+      const isMemberChecked = await memberCheckbox.isChecked();
+      const next = (isAdminChecked && !isMemberChecked) ? data.roles[1] : data.roles[0];
+      const current = next === data.roles[0] ? data.roles[1] : data.roles[0];
       this.log(`Current: ${current}, Changing to: ${next}`);
-      await roleTrigger.click();
-      await this.page.getByRole("option", { name: next }).click();
+      if (next === data.roles[0]) {
+        if (isMemberChecked) await memberCheckbox.click();
+        if (!(await adminCheckbox.isChecked())) await adminCheckbox.click();
+      } else {
+        if (isAdminChecked) await adminCheckbox.click();
+        if (!(await memberCheckbox.isChecked())) await memberCheckbox.click();
+      }
       await modal.getByRole("button", { name: data.saveButtonText }).click();
       await modal.waitFor({ state: "hidden" });
       this.log(`Role changed: ${current} → ${next}`);
@@ -281,12 +290,12 @@ class OrganizationHelper {
   async verifyUpdatedRole(email, expectedRole) {
     try {
       this.log(`Verifying updated role for ${email}`);
-      const row = await this.getRow(email);
-      const cell = row.locator("td.rt-TableCell").first();
-      const updatedRole = (await cell.innerText()).trim();
-      this.log(`Fetched updated role: ${updatedRole}`);
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(2000);
+      const row = await this.getRow(email);
+      const roleCell = row.locator("td.rt-TableCell").first();
+      const updatedRole = (await roleCell.innerText()).trim();
+      this.log(`Fetched updated role: ${updatedRole}`);
       expect(updatedRole).toBe(expectedRole);
       this.log(`Role verification PASSED → ${email}: ${updatedRole} == ${expectedRole}`);
       return updatedRole;

@@ -2,7 +2,10 @@
   "dashboardUrl": "https://beta.tailorbird.com/financials/capex",
   "expectedLabels": [
     "Properties",
-    "Projects & Jobs",
+    "Approvals",
+    "Construction Management",
+    "Projects",
+    "Jobs & Contracts",
     "Financials",
     "Category",
     "Budget",
@@ -15,14 +18,14 @@
   ],
   
   "menuItems": [
-    { "label": "Properties",       "url": "/properties" },
-    { "label": "Projects & Jobs",  "url": "/projects" },
-    { "label": "Category",         "url": "/category" },
-    { "label": "Budget",           "url": "/budget" },
-    { "label": "CapEx",            "url": "/financials/capex" },
-    { "label": "Unit Tracker",     "url": "/unit-tracker" },
-    { "label": "Files",            "url": "/files" },
-    { "label": "Images",           "url": "/images" }
+    { "label": "Properties",         "url": "/properties" },
+    { "label": "Projects",           "url": "/projects" },
+    { "label": "Category",           "url": "/category" },
+    { "label": "Budget",             "url": "/financials/budget" },
+    { "label": "CapEx",              "url": "/financials/capex" },
+    { "label": "Unit Tracker",       "url": "/unit-tracker" },
+    { "label": "Files",              "url": "/files" },
+    { "label": "Images",             "url": "/images" }
   ]
 
 }

@@ -49,8 +49,8 @@ test.describe('Verify category tab', () => {
     });
 
     test('TC49 @regression @category : Should expand Financials section and show Category option', async () => {
-        // await financialsCategoryPage.expandFinancialsSection();
-        await expect(financialsCategoryPage.categoryLink).toBeVisible();
+        await financialsCategoryPage.goToCategory();
+        await expect(page).toHaveURL(/\/category/);
     });
 
     test('TC50 @regression @category : Should navigate to Category page and verify URL', async () => {

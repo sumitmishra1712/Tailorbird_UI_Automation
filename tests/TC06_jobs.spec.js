@@ -669,20 +669,32 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await page.waitForTimeout(1000);
 
         Logger.step('Locate grid and select rows using the grid row checkboxes');
-        const grid = page.locator('revo-grid:has(input[type="checkbox"]), div[role="grid"]:has(input[type="checkbox"]), div[class*="ag-root"]:has(input[type="checkbox"]), table:has(input[type="checkbox"])').first();
-        await grid.waitFor({ state: 'visible', timeout: 10000 });
+        await page.getByRole('columnheader', { name: 'Scope' }).waitFor({ state: 'visible', timeout: 15000 });
 
-        const rowCheckboxes = grid.locator('input[type="checkbox"]');
-        const count = await rowCheckboxes.count();
-        Logger.info('Row checkboxes found: ' + count);
-        if (count === 0) throw new Error('No row selection checkboxes found in grid');
-
-        for (let i = 0; i < count; i++) {
-            const cb = rowCheckboxes.nth(i);
-            if (!(await cb.isChecked())) {
-                await cb.scrollIntoViewIfNeeded();
-                await cb.click();
-                await page.waitForTimeout(150);
+        const rowCheckboxes = page.locator('revo-grid input[type="checkbox"], [role="treegrid"] input[type="checkbox"]');
+        let count = await rowCheckboxes.count();
+        if (count === 0) {
+            const altCheckboxes = page.getByRole('checkbox');
+            count = await altCheckboxes.count();
+            Logger.info('Fallback checkboxes found: ' + count);
+            if (count === 0) throw new Error('No row selection checkboxes found in grid');
+            for (let i = 0; i < count; i++) {
+                const cb = altCheckboxes.nth(i);
+                if (!(await cb.isChecked().catch(() => false))) {
+                    await cb.scrollIntoViewIfNeeded();
+                    await cb.click({ force: true });
+                    await page.waitForTimeout(150);
+                }
+            }
+        } else {
+            Logger.info('Row checkboxes found: ' + count);
+            for (let i = 0; i < count; i++) {
+                const cb = rowCheckboxes.nth(i);
+                if (!(await cb.isChecked().catch(() => false))) {
+                    await cb.scrollIntoViewIfNeeded();
+                    await cb.click({ force: true });
+                    await page.waitForTimeout(150);
+                }
             }
         }
 

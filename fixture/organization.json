@@ -21,7 +21,7 @@
   "resendSuccessMessage": "The invite email has been resent to {{email}}",
   "resendSuccessCloseButton": "Close",
 
-  "editRoleDialogTitle": "Edit role",
+  "editRoleDialogTitle": "Edit roles",
   "saveButtonText": "Save",
 
   "roles": ["Admin", "Member"]

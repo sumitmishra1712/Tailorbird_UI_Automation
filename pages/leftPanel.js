@@ -63,7 +63,11 @@ module.exports = {
      */
     hasMoreMenuButton: async function(page) {
         const moreButton = page.locator('nav a.mantine-NavLink-root').filter({ hasText: 'More' });
-        return await moreButton.count() > 0;
+        if (await moreButton.count() > 0) return true;
+        const moreFallback = page.locator('nav').getByRole('link', { name: 'More' });
+        if (await moreFallback.count() > 0) return true;
+        const moreAny = page.locator('nav').locator('a, button').filter({ hasText: 'More' });
+        return await moreAny.count() > 0;
     },
 
     /**
@@ -234,21 +238,32 @@ module.exports = {
         let directExists = await directParent.count() > 0;
 
         if (!directExists) {
-            // Section is not in direct nav, check More menu
+            // Section is not in direct nav, check More menu or scroll to find it
             const hasMore = await this.hasMoreMenuButton(page);
             if (hasMore) {
                 Logger.info(`Section ${label} is in More menu (minimized mode)`);
                 Logger.info(`Skipping expand/collapse test`);
                 return;
             }
-            throw new Error(`Section not found: ${label}`);
+            await page.locator('nav').first().scrollIntoViewIfNeeded();
+            await page.waitForTimeout(500);
+            directParent = page.locator('nav a.mantine-NavLink-root, nav a').filter({ hasText: new RegExp(`^${label}$`) }).first();
+            directExists = await directParent.count() > 0;
+            if (!directExists) {
+                throw new Error(`Section not found: ${label}`);
+            }
         }
 
         Logger.info(`Found ${label} section`);
 
-        // Ensure visibility
+        // Ensure visibility - scroll nav to reveal element if in scrollable area
+        await page.locator('nav').evaluate((lbl) => {
+            const anchors = Array.from(document.querySelectorAll('nav a'));
+            const el = anchors.find(a => a.textContent?.trim() === lbl);
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        }, label).catch(() => {});
         await directParent.scrollIntoViewIfNeeded();
-        await directParent.waitFor({ state: 'visible' });
+        await directParent.waitFor({ state: 'visible', timeout: 10000 });
         await page.waitForTimeout(300);
 
         // Get collapse container

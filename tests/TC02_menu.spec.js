@@ -75,12 +75,18 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
             
             if (await menuLocator.count() === 0) {
                 // Item not in direct nav, check if it needs expansion or is in More menu
-                if (label === 'Unit Tracker') {
+                if (label === 'Projects' || label === 'Jobs & Contracts') {
+                    await helper.ensureSectionExpanded(page, 'Construction Management');
+                    menuLocator = await helper.getChildMenuLocator(page, 'Construction Management', label);
+                } else if (label === 'Unit Tracker') {
                     await helper.ensureSectionExpanded(page, 'Trackers');
                     menuLocator = await helper.getChildMenuLocator(page, 'Trackers', label);
                 } else if (label === 'Files' || label === 'Images') {
                     await helper.ensureSectionExpanded(page, 'Documents');
                     menuLocator = await helper.getChildMenuLocator(page, 'Documents', label);
+                } else if (label === 'Category' || label === 'Budget' || label === 'CapEx') {
+                    await helper.ensureSectionExpanded(page, 'Financials');
+                    menuLocator = await helper.getChildMenuLocator(page, 'Financials', label);
                 } else {
                     // Try More menu (minimized screen)
                     const hasMore = await helper.hasMoreMenuButton(page);

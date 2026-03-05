@@ -1,7 +1,7 @@
 module.exports = {
 
         // View details
-    viewDetailsBtn: 'button[title="View Details"]',
+    viewDetailsBtn: 'button[title="View Details"], button:has(svg.lucide-eye)',
 
     // Location Tab
     locationsTab: 'button:has-text("Locations")',

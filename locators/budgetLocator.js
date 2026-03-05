@@ -1,7 +1,7 @@
 function budgetLocators(page) {
     return {
         // --- Navigation sidebar ---
-        budgetTab: page.locator('text=Budget').first(),
+        budgetTab: page.locator('nav').getByRole('link', { name: 'Budget' }).first(),
         budgetNavSection: page.locator('nav a.mantine-NavLink-root').filter({ hasText: 'Budget' }).first(),
         budgetCategoryNav: page.locator('nav').locator('a.mantine-NavLink-root, [role="menuitem"]').filter({ hasText: 'Budget Category' }).first(),
         budgetNavText: page.locator('nav').locator('text=Budget').first(),

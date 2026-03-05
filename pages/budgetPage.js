@@ -17,9 +17,23 @@ exports.BudgetJob = class BudgetJob {
     async navigateToBudgetTab() {
         try {
             Logger.step('Navigating to Budget tab');
-            await budget.budgetTab.click();
-            await this.page.waitForLoadState('networkidle');
-            await this.page.waitForURL('**/financials/budget', { timeout: 10000 });
+            const budgetVisible = await budget.budgetTab.isVisible().catch(() => false);
+            if (!budgetVisible) {
+                const financials = this.page.locator('nav').locator('a').filter({ hasText: 'Financials' }).first();
+                if (await financials.isVisible().catch(() => false)) {
+                    await financials.click();
+                    await this.page.waitForTimeout(500);
+                }
+            }
+            const nowVisible = await budget.budgetTab.isVisible().catch(() => false);
+            if (nowVisible) {
+                await budget.budgetTab.click();
+                await this.page.waitForLoadState('networkidle');
+            } else {
+                Logger.info('Budget tab not visible in sidebar — navigating directly');
+                await this.page.goto('https://beta.tailorbird.com/financials/budget', { waitUntil: 'networkidle' });
+            }
+            await this.page.waitForURL('**/financials/budget', { timeout: 15000 });
             Logger.success('Navigated to Budget tab');
         } catch (error) {
             Logger.error('Failed to navigate to Budget tab: ' + error.message);

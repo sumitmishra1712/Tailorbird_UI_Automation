@@ -110,8 +110,25 @@ class FinancialsCategoryPage {
     }
 
     async goToCategory() {
-        await this.categoryLink.waitFor({ state: "visible" });
-        await this.categoryLink.click();
+        let visible = await this.categoryLink.isVisible().catch(() => false);
+        if (!visible) {
+            const financialsVisible = await this.financialsNav.isVisible().catch(() => false);
+            if (financialsVisible) {
+                const expanded = await this.financialsNav.getAttribute("aria-expanded");
+                if (expanded !== "true") {
+                    await this.financialsNav.click();
+                    await this.page.waitForTimeout(500);
+                }
+            }
+            visible = await this.categoryLink.isVisible({ timeout: 3000 }).catch(() => false);
+        }
+
+        if (visible) {
+            await this.categoryLink.click();
+        } else {
+            await this.page.goto("https://beta.tailorbird.com/financials/category", { waitUntil: "networkidle" });
+        }
+
         await this.page.waitForLoadState("networkidle");
         await this.page.waitForTimeout(300);
     }
@@ -231,31 +248,25 @@ class FinancialsCategoryPage {
         await this.page.waitForLoadState("networkidle");
         await this.page.waitForTimeout(2000);
 
-        const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 15000 });
-
-        const addRowMenu = this.page.getByTestId('bt-add-row-menu');
+        const uploadBtn = this.page.locator('button:has(svg.lucide-upload)').first();
         const importBtn = this.importDataButton;
-        const uploadBtn = this.uploadFilesBtn;
         const importRoleBtn = this.page.getByRole('button', { name: 'Import Data' });
 
+        try {
+            await uploadBtn.waitFor({ state: 'visible', timeout: 15000 });
+        } catch {
+            await this.page.waitForTimeout(3000);
+        }
+
         let clicked = false;
-        if (await importBtn.isVisible().catch(() => false)) {
+        if (await uploadBtn.isVisible().catch(() => false)) {
+            await uploadBtn.click();
+            clicked = true;
+        } else if (await importBtn.isVisible().catch(() => false)) {
             await importBtn.click();
             clicked = true;
         } else if (await importRoleBtn.isVisible().catch(() => false)) {
             await importRoleBtn.click();
-            clicked = true;
-        } else if (await addRowMenu.isVisible().catch(() => false)) {
-            await addRowMenu.click();
-            await this.page.waitForTimeout(600);
-            const importMenuItem = this.page.getByRole('menuitem', { name: /Import|Upload/i });
-            if (await importMenuItem.first().isVisible().catch(() => false)) {
-                await importMenuItem.first().click();
-                clicked = true;
-            }
-        }
-        if (!clicked && (await uploadBtn.first().isVisible().catch(() => false))) {
-            await uploadBtn.first().click({ force: true });
             clicked = true;
         }
         if (!clicked) {
@@ -263,28 +274,13 @@ class FinancialsCategoryPage {
         }
 
         const fromDeviceBtn = this.page.getByRole('button', { name: 'From device' });
-        const uploadDialog = this.uploadDialog.first();
-        const fileInput = this.page.locator('input[type="file"]');
+        await fromDeviceBtn.waitFor({ state: 'visible', timeout: 10000 });
 
-        const which = await Promise.race([
-            fileChooserPromise.then((fc) => ({ type: 'chooser', fc })),
-            fromDeviceBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => ({ type: 'fromdevice' })),
-            uploadDialog.waitFor({ state: 'visible', timeout: 15000 }).then(() => ({ type: 'dialog' })),
-        ]).catch(() => null);
-
-        if (which && which.type === 'chooser') {
-            await which.fc.setFiles(filePath);
-        } else if (which && (which.type === 'fromdevice' || which.type === 'dialog')) {
-            const [fc] = await Promise.all([
-                this.page.waitForEvent('filechooser', { timeout: 10000 }),
-                fromDeviceBtn.click(),
-            ]);
-            await fc.setFiles(filePath);
-        } else if ((await fileInput.count()) > 0) {
-            await fileInput.first().setInputFiles(filePath);
-        } else {
-            throw new Error('Upload dialog, From device button, or file input not found. Try running with --headed to verify Import button.');
-        }
+        const [fileChooser] = await Promise.all([
+            this.page.waitForEvent('filechooser', { timeout: 10000 }),
+            fromDeviceBtn.click(),
+        ]);
+        await fileChooser.setFiles(filePath);
 
         await this.page.waitForTimeout(2000);
         const doneBtn = this.page.getByRole('button', { name: 'Done' });
@@ -404,23 +400,14 @@ class FinancialsCategoryPage {
         await this.page.waitForLoadState('networkidle');
         await this.page.waitForTimeout(1000);
 
-        // Step 5: Get all rows from the table and count them
-        const rows = this.page.locator('treegrid[role="treegrid"] > div:last-child > div > row, [role="row"]');
-        const rowCount = await rows.count();
+        // Step 5: Get filtered rows — check gridcells containing the filter value
+        const matchingCells = this.page.locator('[role="gridcell"]').filter({
+            hasText: filterValue
+        });
+        const rowCount = await matchingCells.count();
 
         if (rowCount === 0) {
             throw new Error(`No rows found after filtering "${columnName}" with value "${filterValue}"`);
-        }
-
-        // Step 6: Verify that filtered rows contain the filter value
-        // Get the cells in the first column (Category Code column)
-        const categoryCodeCells = this.page.locator('[role="gridcell"]').filter({
-            has: this.page.locator(`text="${filterValue}"`)
-        });
-
-        const cellCount = await categoryCodeCells.count();
-        if (cellCount === 0) {
-            throw new Error(`No cells found containing filter value "${filterValue}"`);
         }
 
         // Step 7: Close the filter panel

@@ -41,8 +41,8 @@ export const propertyLocators = {
     propertyTypeOption: type => `.mantine-Select-option:has-text("${type}")`,
     
     // ============ BUTTONS & ACTIONS ============
-    viewDetailsButton: 'button[title="View Details"]',
-    viewDetailsBtn: 'button[title="View Details"]',
+    viewDetailsButton: '[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)',
+    viewDetailsBtn: '[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)',
     deleteButtonInPopover: '.mantine-Popover-dropdown button:has-text("Delete")',
     deleteConfirmBtn: ".mantine-Popover-dropdown button:has-text('Delete')",
     assetViewer: 'button:has-text("Asset Viewer")',

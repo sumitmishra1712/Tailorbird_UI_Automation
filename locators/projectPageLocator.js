@@ -1,6 +1,6 @@
 const projectJobLocators = (page) => ({
 
-    projectsTab: page.locator('span.m_1f6ac4c4.mantine-NavLink-label', { hasText: 'Projects & Jobs' }),
+    projectsTab: page.locator('nav a.mantine-NavLink-root:has(.mantine-NavLink-label:text-is("Projects"))').first(),
     jobsTab: page.locator('.mantine-Tabs-tabLabel:has-text("Jobs")'),
     bidsTab: page.locator('.mantine-Tabs-tabLabel:has-text("Bids")'),
     contractsTab: page.locator('.mantine-Tabs-tabLabel:has-text("Contracts")'),

@@ -288,7 +288,7 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
 
     await safe("Changing table view", async () => await prop.changeView("Table View"))
     await safe("Searching property", async () => await prop.searchProperty("The Brook (Sample Property 2)"))
-    await safe("Opening View Details", async () => await page.locator('button[title="View Details"]').first().click({ force: true }))
+    await safe("Opening View Details", async () => await page.locator('[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)').first().click({ force: true }))
     await safe("Opening Asset Viewer", async () => await page.locator('button:has-text("Asset Viewer")').click({ force: true }))
 
     await page.waitForLoadState("networkidle");
@@ -459,7 +459,7 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await prop.searchProperty(propertyName);
     console.log("Property searched successfully");
 
-    const viewDetailsBtn = page.locator('button[title="View Details"]').first();
+    const viewDetailsBtn = page.locator('[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)').first();
     await expect(viewDetailsBtn).toBeVisible({ timeout: 5000 });
     await viewDetailsBtn.click();
 
