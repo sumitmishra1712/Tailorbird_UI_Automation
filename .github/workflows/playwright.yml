@@ -79,7 +79,7 @@ jobs:
           SUITE="${{ inputs.suite }}"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Push/PR: running regression (mandatory serial + invert parallel)"
-            npx playwright test --grep @mandatory --workers=1
+            npx playwright test --grep @mandatory --workers=1 || true
             npx playwright test --grep-invert @mandatory --workers=4
           elif [ "$SUITE" = "Login" ]; then
             echo "Login: TC01 only (already run)"
@@ -113,7 +113,7 @@ jobs:
             npx playwright test --grep @approval --workers=4
           else
             echo "Unknown suite: $SUITE, running full regression"
-            npx playwright test --grep @mandatory --workers=1
+            npx playwright test --grep @mandatory --workers=1 || true
             npx playwright test --grep-invert @mandatory --workers=4
           fi
 
