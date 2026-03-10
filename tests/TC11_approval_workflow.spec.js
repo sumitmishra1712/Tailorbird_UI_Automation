@@ -28,7 +28,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         Logger.success('Setup complete - Navigated to Approval section');
     });
 
-    test('@approval TC121 My Approvals – Verify user can navigate to My Approvals tab and view all expected column headers correctly', async () => {
+    test('@approval @sanity @regression TC121 My Approvals – Verify user can navigate to My Approvals tab and view all expected column headers correctly', async () => {
         try {
             Logger.step('TC121: Verifying My Approvals tab navigation and page structure');
 
@@ -62,7 +62,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC122 My Approvals – Verify user can export available approval records from My Approvals into a CSV file successfully', async () => {
+    test('@approval @regression TC122 My Approvals – Verify user can export available approval records from My Approvals into a CSV file successfully', async () => {
         try {
             Logger.step('TC124: Testing export data functionality in My Approvals');
 
@@ -84,7 +84,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC123 My Approvals – Verify user can open and close the Manage Columns dialog and view available column options', async () => {
+    test('@approval @regression TC123 My Approvals – Verify user can open and close the Manage Columns dialog and view available column options', async () => {
         try {
             Logger.step('TC125: Testing Manage Columns dialog in My Approvals');
 
@@ -111,7 +111,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC124 My Approvals – Verify user can add a new column to the approvals table and see it reflected immediately', async () => {
+    test('@approval @sanity @regression TC124 My Approvals – Verify user can add a new column to the approvals table and see it reflected immediately', async () => {
         try {
             Logger.step('TC126: Testing Add Column button in My Approvals');
 
@@ -130,7 +130,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC125 My Approvals – Verify user can open the filter panel, apply filters, and close the filter panel successfully', async () => {
+    test('@approval @regression TC125 My Approvals – Verify user can open the filter panel, apply filters, and close the filter panel successfully', async () => {
         try {
             Logger.step('TC127: Testing Filter button in My Approvals');
 
@@ -153,7 +153,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC126 All Approvals – Verify user can navigate to All Approvals tab and view all expected column headers correctly', async () => {
+    test('@approval @regression TC126 All Approvals – Verify user can navigate to All Approvals tab and view all expected column headers correctly', async () => {
         try {
             Logger.step('TC129: Verifying All Approvals tab navigation and structure');
 
@@ -185,7 +185,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC127 All Approvals – Verify user can search approval records in All Approvals using a valid keyword and view filtered results', async () => {
+    test('@approval @regression TC127 All Approvals – Verify user can search approval records in All Approvals using a valid keyword and view filtered results', async () => {
         try {
             Logger.step('TC130: Testing search in All Approvals tab');
 
@@ -213,7 +213,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC128 All Approvals – Verify user can export approval records from All Approvals into a CSV file successfully', async () => {
+    test('@approval @sanity @regression TC128 All Approvals – Verify user can export approval records from All Approvals into a CSV file successfully', async () => {
         try {
             Logger.step('TC131: Testing export in All Approvals tab');
 
@@ -235,7 +235,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC129 All Approvals – Verify user can open and close the Manage Columns dialog and manage table columns successfully', async () => {
+    test('@approval @regression TC129 All Approvals – Verify user can open and close the Manage Columns dialog and manage table columns successfully', async () => {
         try {
             Logger.step('TC132: Testing Manage Columns in All Approvals');
 
@@ -261,7 +261,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC130 All Approvals – Verify user can add a new column to the All Approvals table and see updated table structure', async () => {
+    test('@approval @regression TC130 All Approvals – Verify user can add a new column to the All Approvals table and see updated table structure', async () => {
         try {
             Logger.step('TC133: Testing Add Column in All Approvals');
 
@@ -280,7 +280,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC131 All Approvals – Verify user can open the filter panel, apply filters, and close the filter panel successfully', async () => {
+    test('@approval @regression TC131 All Approvals – Verify user can open the filter panel, apply filters, and close the filter panel successfully', async () => {
         try {
             Logger.step('TC134: Testing Filter button in All Approvals');
 
@@ -303,7 +303,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC132 Approval Workflow – Verify user can switch between My Approvals and All Approvals tabs without data or UI issues', async () => {
+    test('@approval @sanity @regression TC132 Approval Workflow – Verify user can switch between My Approvals and All Approvals tabs without data or UI issues', async () => {
         try {
             Logger.step('TC135: E2E test - switching between tabs');
 
@@ -332,7 +332,7 @@ test.describe('Approval Workflow - My Approvals & All Approvals E2E Tests', () =
         }
     });
 
-    test('@approval TC133 Approval Workflow – Verify both My Approvals and All Approvals tabs load with consistent column headers and page structure', async () => {
+    test('@approval @sanity @regression TC133 Approval Workflow – Verify both My Approvals and All Approvals tabs load with consistent column headers and page structure', async () => {
         try {
             Logger.step('TC136: E2E test - verifying page loaded across tabs');
 

@@ -3,7 +3,7 @@ name: Playwright Tests
 run-name: >
   ${{ github.event_name == 'workflow_dispatch'
       && format('Playwright - {0}', inputs.suite)
-      || 'Playwright - RegressionRun (push/PR)' }}
+      || 'Playwright - regression (push/PR)' }}
 
 on:
   push:
@@ -15,22 +15,19 @@ on:
     inputs:
       suite:
         required: false
-        default: RegressionRun
+        default: regression
         type: choice
         options:
-          - RegressionRun
-          - SanityRun
-          - Component_Login
-          - Component_Menu
-          - Component_Organization
-          - Component_Property
-          - Component_Project
-          - Component_Job
-          - Component_Category
-          - Component_Invoice
-          - Component_ChangeOrder
-          - Component_Approval
-          - Component_Budget
+          - Login
+          - sanity
+          - regression
+          - property
+          - projectAndJob
+          - bids
+          - contract
+          - budget
+          - changeOrderAndinvoice
+          - approval
       notion_ticket_id:
         required: false
 
@@ -38,6 +35,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -56,18 +55,63 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps
 
+      - name: Run login first
+        id: login
+        run: |
+          if [ "${{ inputs.suite }}" = "Login" ]; then
+            npx playwright test --grep "TC01" --workers=1
+          else
+            npx playwright test --grep @login --workers=1
+          fi
+
       - name: Run mandatory tests
         id: mandatory
+        if: ${{ inputs.suite == 'regression' || inputs.suite == 'changeOrderAndinvoice' }}
         run: npx playwright test --grep @mandatory --workers=1
 
       - name: Run suite
         id: suite
         if: always()
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            npm run "${{ inputs.suite }}" -- --grep-invert @mandatory --workers=4
+          SUITE="${{ inputs.suite }}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Push/PR: running regression (mandatory serial + invert parallel)"
+            npx playwright test --grep @mandatory --workers=1
+            npx playwright test --grep-invert @mandatory --workers=4
+          elif [ "$SUITE" = "Login" ]; then
+            echo "Login: TC01 only (already run)"
+            exit 0
+          elif [ "$SUITE" = "sanity" ]; then
+            echo "sanity: @sanity only, serial"
+            npx playwright test --grep @sanity --workers=1
+          elif [ "$SUITE" = "regression" ]; then
+            echo "regression: mandatory (serial) already run, now invert mandatory (parallel)"
+            npx playwright test --grep-invert @mandatory --workers=4
+          elif [ "$SUITE" = "property" ]; then
+            echo "property: @property parallel"
+            npx playwright test --grep @property --workers=4
+          elif [ "$SUITE" = "projectAndJob" ]; then
+            echo "projectAndJob: @projectAndJob parallel"
+            npx playwright test --grep @projectAndJob --workers=4
+          elif [ "$SUITE" = "bids" ]; then
+            echo "bids: @bids serial"
+            npx playwright test --grep @bids --workers=1
+          elif [ "$SUITE" = "contract" ]; then
+            echo "contract: @contract serial"
+            npx playwright test --grep @contract --workers=1
+          elif [ "$SUITE" = "budget" ]; then
+            echo "budget: @budget parallel"
+            npx playwright test --grep @budget --workers=4
+          elif [ "$SUITE" = "changeOrderAndinvoice" ]; then
+            echo "changeOrderAndinvoice: mandatory (serial) already run, now @changeOrderAndinvoice parallel"
+            npx playwright test --grep @changeOrderAndinvoice --workers=4
+          elif [ "$SUITE" = "approval" ]; then
+            echo "approval: @approval parallel"
+            npx playwright test --grep @approval --workers=4
           else
-            npm run RegressionRun -- --grep-invert @mandatory --workers=4
+            echo "Unknown suite: $SUITE, running full regression"
+            npx playwright test --grep @mandatory --workers=1
+            npx playwright test --grep-invert @mandatory --workers=4
           fi
 
       - uses: actions/upload-artifact@v4
@@ -82,14 +126,36 @@ jobs:
         with:
           path: playwright-report/
 
-      - name: Update Notion with report
+      - name: Zip report for Notion
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
+        run: |
+          zip -r playwright-report.zip playwright-report/
+          echo "Report zipped: $(ls -la playwright-report.zip)"
+
+      - name: Create release and upload report zip
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: report-run-${{ github.run_id }}
+          name: Playwright Report (Run #${{ github.run_number }})
+          draft: false
+          generate_release_notes: false
+          target_commitish: ${{ github.sha }}
+          files: playwright-report.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Notion with report zip attachment
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TEST_RESULT: ${{ steps.mandatory.outcome == 'success' && steps.suite.outcome == 'success' && 'Passed' || 'Failed' }}
+          ZIP_URL: https://github.com/${{ github.repository }}/releases/download/report-run-${{ github.run_id }}/playwright-report.zip
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/report-run-${{ github.run_id }}
         run: |
-          echo "=== Fetching page properties to verify available property names ==="
+          echo "=== Fetching page properties ==="
           PAGE_DATA=$(curl -s "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
             -H "Authorization: Bearer $NOTION_TOKEN" \
             -H "Notion-Version: 2022-06-28")
@@ -97,28 +163,45 @@ jobs:
           echo "$PAGE_DATA" | jq '[.properties | keys[]]' 2>/dev/null
 
           echo ""
-          echo "=== Updating Notion ticket with report URL: $RUN_URL ==="
+          echo "=== Updating Notion ticket: Test Report (Actions run URL), CI Trigger ==="
+          PATCH_JSON=$(jq -n \
+            --arg run_url "$RUN_URL" \
+            '{
+              properties: {
+                "Test Report": { url: $run_url },
+                "CI Trigger": { select: { name: "Reported" } }
+              }
+            }')
           RESULT=$(curl -s -w "\n%{http_code}" -X PATCH "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
             -H "Authorization: Bearer $NOTION_TOKEN" \
             -H "Notion-Version: 2022-06-28" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"properties\": {
-                \"Test Report\": {
-                  \"url\": \"$RUN_URL\"
-                },
-                \"CI Trigger\": {
-                  \"select\": { \"name\": \"Reported\" }
-                }
-              }
-            }")
+            -d "$PATCH_JSON")
           HTTP_CODE=$(echo "$RESULT" | tail -n 1)
-          echo "Notion PATCH HTTP status: $HTTP_CODE"
+          echo "Notion PATCH properties HTTP status: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Notion error response:"
+            echo "Notion PATCH response:"
             echo "$RESULT" | head -n -1 | jq '.' 2>/dev/null
+          fi
+
+          echo ""
+          echo "=== Appending report zip block to page content ==="
+          BLOCK_JSON=$(jq -n \
+            --arg zip_url "$ZIP_URL" \
+            --arg run "Run #${{ github.run_number }}" \
+            '{children: [{object: "block", type: "file", file: {type: "external", external: {url: $zip_url}, caption: [{type: "text", text: {content: ("Playwright Report (" + $run + ") - Download ZIP")}}]}}]}')
+          BLOCK_RESULT=$(curl -s -w "\n%{http_code}" -X PATCH "https://api.notion.com/v1/blocks/${{ inputs.notion_ticket_id }}/children" \
+            -H "Authorization: Bearer $NOTION_TOKEN" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "$BLOCK_JSON")
+          BLOCK_HTTP=$(echo "$BLOCK_RESULT" | tail -n 1)
+          echo "Notion append file block HTTP status: $BLOCK_HTTP"
+          if [ "$BLOCK_HTTP" != "200" ]; then
+            echo "Notion block append response:"
+            echo "$BLOCK_RESULT" | head -n -1 | jq '.' 2>/dev/null
           else
-            echo "Notion ticket updated successfully"
+            echo "Report ZIP attached to Notion ticket successfully"
           fi
 
   deploy:

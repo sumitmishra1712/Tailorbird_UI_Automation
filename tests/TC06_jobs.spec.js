@@ -47,7 +47,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         });
     });
 
-    test('TC36 @regression @job @urgent : Validate Navigation to job tab without any console error within 2 seconds', async () => {
+    test('TC36 @regression @projectAndJob : Validate Navigation to job tab without any console error within 2 seconds', async () => {
         Logger.step('Navigating to Projects...');
         await projectPage.navigateToProjects();
         await projectPage.openProject(projectData.projectName);
@@ -62,7 +62,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectJob.navigateToJobsTab();
     });
 
-    test('TC37 @regression @mandatory @job @bid : Validate add job modal fields, add job flow and job config in job overview', async () => {
+    test('TC37 @regression @sanity @mandatory @projectAndJob @contract : Validate add job modal fields, add job flow and job config in job overview', async () => {
         await projectPage.navigateToProjects();
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
@@ -104,7 +104,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectPage.validateOverviewVisible();
     });
 
-    test('TC38 @regression @mandatory @job @bid : User should be able to create bids and invite existing vendor', async () => {
+    test('TC38 @regression @sanity @mandatory @projectAndJob @bids @contract : User should be able to create bids and invite existing vendor', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
 
@@ -151,7 +151,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Bid created and existing vendor invited successfully.');
     });
 
-    test('TC39 @regression @job @mandatory : User should be able to invite new vendor', async () => {
+    test('TC39 @regression @sanity @projectAndJob @mandatory @bids @contract : User should be able to invite new vendor', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -189,7 +189,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         // await page.waitForTimeout(3000);
     });
 
-    test.skip('TC40 @regression @job : Validate set bid template fucntionality and save it', async () => {
+    test.skip('TC40 @regression @projectAndJob @bids : Validate set bid template fucntionality and save it', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -197,7 +197,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectJob.verifyBidTemplate();
     });
 
-    test('TC41 @regression @job @mandatory : Validate update bid flow', async () => {
+    test('TC41 @regression @projectAndJob @mandatory @bids @contract : Validate update bid flow', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -210,7 +210,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectJob.validateAndUpdateFirstRow();
     });
 
-    test('TC50 @regression @job @bid : Positive - Update bid values and validate Bid Book', async () => {
+    test('TC50 @regression @projectAndJob @bids : Positive - Update bid values and validate Bid Book', async () => {
         await test.step('Navigate to project and open Bids tab', async () => {
             await projectPage.openProject(projectData.projectName);
             await projectJob.navigateToJobsTab();
@@ -290,7 +290,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Positive Bid Book E2E flow completed');
     });
 
-    test('TC51 @regression @job @bid : Negative - Validate Bid Book constraints and edge cases', async () => {
+    test('TC51 @regression @projectAndJob : Negative - Validate Bid Book constraints and edge cases', async () => {
         await test.step('Navigate to project and open Bids tab', async () => {
             await projectPage.openProject(projectData.projectName);
             await projectJob.navigateToJobsTab();
@@ -395,7 +395,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('All negative Bid Book scenarios validated');
     });
 
-    test('TC52 @regression @job @bid : Bid Levelling - Submit bid on behalf and validate levelling view', async () => {
+    test('TC52 @regression @projectAndJob @bids : Bid Levelling - Submit bid on behalf and validate levelling view', async () => {
         await test.step('Navigate to project and open Bids tab', async () => {
             await projectPage.openProject(projectData.projectName);
             await projectJob.navigateToJobsTab();
@@ -543,7 +543,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Bid Levelling E2E flow completed');
     });
 
-    test('TC42 @regression @job @mandatory : Validate reset table modal and its functionality', async () => {
+    test('TC42 @regression @projectAndJob @mandatory @bids : Validate reset table modal and its functionality', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -559,7 +559,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectPage.assertRowCountAfterReset();
     });
 
-    test('TC43 @regression @job : Validate scope mix modal fields', async () => {
+    test('TC43 @regression @projectAndJob @bids : Validate scope mix modal fields', async () => {
         await projectPage.openProject('Automation_project_for_scope_mix');
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -571,7 +571,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectPage.closeScopeMixModal();
     });
 
-    test('TC44 @regression  @mandatory @job : Validate edit bid on behalf of new vendor flow and submit it successfully', async ({ context }) => {
+    test('TC44 @regression @sanity @mandatory @projectAndJob @bids : Validate edit bid on behalf of new vendor flow and submit it successfully', async ({ context }) => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -603,7 +603,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectPage.saveSessionState(context);
     });
 
-    test('TC45 @regression @mandatory @job : User should be able to open Bids tab and verify bid data', async () => {
+    test('TC45 @regression @mandatory @projectAndJob @bids : User should be able to open Bids tab and verify bid data', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -613,7 +613,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Bids tab loaded successfully');
     });
 
-    test('TC46 @regression @mandatory @job : User should be able to manage vendors and award bid', async () => {
+    test('TC46 @regression @mandatory @projectAndJob @bids @contract : User should be able to manage vendors and award bid', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -628,7 +628,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await page.waitForTimeout(3000);
     });
 
-    test('TC46_1 @regression @mandatory @job : Select budget category for all bids before finalizing contract', async () => {
+    test('TC46_1 @regression @mandatory @projectAndJob @contract : Select budget category for all bids before finalizing contract', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -641,7 +641,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Budget category selected for all bids');
     });
 
-    test('TC47 @regression @mandatory @job : User should be able to verify pending status and finalize contract', async () => {
+    test('TC47 @regression @mandatory @projectAndJob @contract : User should be able to verify pending status and finalize contract', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
@@ -659,78 +659,20 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Contract finalized and verified successfully');
     });
 
-    test('TC48 @regression @job : Bulk update contracts status to In Progress (no hardcoded URL)', async () => {
+    test('TC48 @regression @projectAndJob @contract : Bulk update contracts status to In Progress (no hardcoded URL)', async () => {
         Logger.step('Navigate to project and open jobs/contracts via page objects');
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
-        await projectPage.openContractsTab();
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
-
-        Logger.step('Locate grid and select rows using the grid row checkboxes');
-        await page.getByRole('columnheader', { name: 'Scope' }).waitFor({ state: 'visible', timeout: 15000 });
-
-        const rowCheckboxes = page.locator('revo-grid input[type="checkbox"], [role="treegrid"] input[type="checkbox"]');
-        let count = await rowCheckboxes.count();
-        if (count === 0) {
-            const altCheckboxes = page.getByRole('checkbox');
-            count = await altCheckboxes.count();
-            Logger.info('Fallback checkboxes found: ' + count);
-            if (count === 0) throw new Error('No row selection checkboxes found in grid');
-            for (let i = 0; i < count; i++) {
-                const cb = altCheckboxes.nth(i);
-                if (!(await cb.isChecked().catch(() => false))) {
-                    await cb.scrollIntoViewIfNeeded();
-                    await cb.click({ force: true });
-                    await page.waitForTimeout(150);
-                }
-            }
-        } else {
-            Logger.info('Row checkboxes found: ' + count);
-            for (let i = 0; i < count; i++) {
-                const cb = rowCheckboxes.nth(i);
-                if (!(await cb.isChecked().catch(() => false))) {
-                    await cb.scrollIntoViewIfNeeded();
-                    await cb.click({ force: true });
-                    await page.waitForTimeout(150);
-                }
-            }
-        }
-
-        Logger.step('Open Bulk Update Status menu');
-        const bulkBtn = page.locator('button:has-text("Bulk Update Status")').first();
-        await expect(bulkBtn).toBeVisible({ timeout: 5000 });
-        await expect(bulkBtn).toBeEnabled({ timeout: 5000 });
-        await bulkBtn.click();
-
-        Logger.step('Select "In Progress" from the menu');
-        const inProgressItem = page.locator('div.mantine-Menu-itemLabel:has-text("In Progress")').first();
-        await expect(inProgressItem).toBeVisible({ timeout: 5000 });
-        await inProgressItem.click();
-
-        // Give app a moment to process bulk action
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1500);
-
-        // Verify that a status of "In Progress" appears on the page
-        const found = await page.locator('text=In Progress').first().isVisible().catch(() => false);
-        expect(found).toBeTruthy();
-
-        Logger.success('Bulk update executed and "In Progress" status is visible');
+        await projectPage.bulkUpdateContractsToInProgress();
     });
 
-    test.skip('TC49 @regression @mandatory @job : Bulk update contracts status to In Progress (no hardcoded URL)', async () => {
+    test('TC49 @regression @mandatory @projectAndJob @contract : Bulk update contracts status to In Progress (no hardcoded URL)', async () => {
         Logger.step('Navigate to project and open jobs/contracts via page objects');
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
-        await projectJob.navigateToBidsTab();
-        await projectJob.minimizeManageVendors();
-        await page
-            .locator('.mantine-Flex-root')
-            .filter({ hasText: 'Bid Levelling' })
-            .click();
+        await projectPage.bulkUpdateContractsToInProgress();
     });
 
 });

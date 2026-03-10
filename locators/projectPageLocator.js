@@ -137,6 +137,14 @@ const projectJobLocators = (page) => ({
 
     exportButton: page.locator('button:has-text("Export")'),
 
+    // Bulk Update Status (Contracts tab)
+    contractsScopeHeader: page.getByRole('columnheader', { name: 'Scope' }),
+    contractRowCheckboxes: page.locator('revo-grid input[type="checkbox"], [role="treegrid"] input[type="checkbox"]'),
+    contractAltCheckboxes: page.getByRole('checkbox'),
+    bulkUpdateStatusBtn: page.locator('button:has-text("Bulk Update Status")').first(),
+    bulkUpdateInProgressItem: page.locator('div.mantine-Menu-itemLabel:has-text("In Progress")').first(),
+    inProgressStatusText: page.locator('text=In Progress').first(),
+
     agCellEditorInput: page.locator('input[data-testid="bird-table-text-input"]'),
     agCellEditorTextarea: page.locator('textarea[data-testid="bird-table-text-input"]'),
     firstAgRow: page.locator('div[role="row"][row-index="0"]'),

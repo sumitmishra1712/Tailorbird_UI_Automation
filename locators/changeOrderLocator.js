@@ -57,7 +57,13 @@ function changeOrderLocators(page) {
         amountCellByColumn: (colIndex) => page.locator(`div[role="gridcell"][data-rgcol="${colIndex}"]`).first(),
         amountCellWithZero: page.locator('div[role="gridcell"]:has-text("$0")').first(),
         gridCellInput: page.locator('input:focus, input[data-testid="bird-table-currency-input"], input[data-testid="bird-table-number-input"]').first(),
-        allGridCells: page.locator('div[role="gridcell"]')
+        allGridCells: page.locator('div[role="gridcell"]'),
+
+        // Change Order Details - snapshot values (in dialog or details view)
+        changeOrderDetailsScope: page.locator('dialog,[role="dialog"], [data-testid*="change-order"]').filter({ hasText: /Change Order|Overview/i }).first(),
+        currentContractValueLabel: page.locator('text=Current Contract Value').or(page.locator('text=Current Contract')).first(),
+        revisedContractAmountLabel: page.locator('text=Revised Contract Amount').first(),
+        changeOrderAmountHeader: page.locator('[role="columnheader"]').filter({ hasText: 'Change Order Amount' }).first()
     };
 }
 

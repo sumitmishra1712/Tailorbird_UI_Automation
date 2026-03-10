@@ -28,7 +28,7 @@ test.describe('Approval Workflow - My Approvals E2E Tests with another user', ()
         Logger.success('Setup complete - Navigated to Approval section');
     });
 
-    test('@approval TC134 My Approvals – Verify user can successfully search approval records using a valid keyword and see filtered results', async () => {
+    test('@approval @sanity @regression TC134 My Approvals – Verify user can successfully search approval records using a valid keyword and see filtered results', async () => {
         try {
             Logger.step('TC122: Testing search functionality in My Approvals tab');
 
@@ -58,7 +58,7 @@ test.describe('Approval Workflow - My Approvals E2E Tests with another user', ()
         }
     });
 
-    test('@approval TC135 My Approvals – Verify system displays no results message when user searches approval records with non-existent data', async () => {
+    test('@approval @regression TC135 My Approvals – Verify system displays no results message when user searches approval records with non-existent data', async () => {
         try {
             Logger.step('TC123: Testing search with non-existent data');
 
@@ -87,7 +87,7 @@ test.describe('Approval Workflow - My Approvals E2E Tests with another user', ()
         }
     });
 
-    test('@approval TC136 My Approvals – Verify My Approvals page loads correctly with functional toolbar, table, search, export, and approval details modal', async () => {
+    test('@approval @regression TC136 My Approvals – Verify My Approvals page loads correctly with functional toolbar, table, search, export, and approval details modal', async () => {
         try {
             Logger.step('TC128: Navigating to My Approvals tab');
             await approvalJob.navigateToMyApprovalsTab();
@@ -172,7 +172,7 @@ test.describe('Approval Workflow - My Approvals E2E Tests with another user', ()
         }
     });
 
-    test('@approval TC137 Approval Workflow – Verify search behavior is handled correctly when switching between approval tabs', async () => {
+    test('@approval @regression TC137 Approval Workflow – Verify search behavior is handled correctly when switching between approval tabs', async () => {
         try {
             Logger.step('TC137: E2E test - testing search behavior across tabs');
 
@@ -201,7 +201,7 @@ test.describe('Approval Workflow - My Approvals E2E Tests with another user', ()
         }
     });
 
-    test('@approval TC138 Approval Workflow – Verify user can complete the full end-to-end approval journey including search, view details, manage columns, export data, and tab navigation', async () => {
+    test('@approval @regression TC138 Approval Workflow – Verify user can complete the full end-to-end approval journey including search, view details, manage columns, export data, and tab navigation', async () => {
         try {
             Logger.step('TC138: E2E complete workflow - view, search, manage columns, export');
 

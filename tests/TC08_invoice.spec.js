@@ -80,7 +80,7 @@ test.describe('Verify Invoice tab', () => {
         });
     });
 
-    test('TC61 @regression @invoice : Should navigate to Invoice page and verify URL', async () => {
+    test('TC61 @regression @changeOrderAndinvoice : Should navigate to Invoice page and verify URL', async () => {
         await expect(page).toHaveURL(/tab=invoices/);
         const pageContent = await page.locator('body').textContent();
         expect(pageContent).toBeTruthy();
@@ -89,7 +89,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Add Invoice button is visible.');
     });
 
-    test('TC62 @regression @invoice : Should add new invoice and open invoice details page', async () => {
+    test('TC62 @regression @changeOrderAndinvoice : Should add new invoice and open invoice details page', async () => {
         await invoicePage.clickAddInvoice();
 
         const isModalOpen = await invoicePage.isModalOpen();
@@ -101,7 +101,7 @@ test.describe('Verify Invoice tab', () => {
         }
     });
 
-    test('TC63 @regression @invoice : Should enter invoice title and required information', async () => {
+    test('TC63 @regression @changeOrderAndinvoice : Should enter invoice title and required information', async () => {
         await invoicePage.clickAddInvoice();
 
         // Fill invoice details
@@ -113,7 +113,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Invoice details filled successfully.');
     });
 
-    test('TC64 @regression @invoice : Should upload PNG image for invoice', async () => {
+    test('TC64 @regression @changeOrderAndinvoice : Should upload PNG image for invoice', async () => {
         await invoicePage.clickAddInvoice();
 
         // Create test image if it doesn't exist
@@ -132,37 +132,33 @@ test.describe('Verify Invoice tab', () => {
         await invoicePage.uploadInvoiceImage(testImagePath);
     });
 
-    test('TC65 @regression @invoice : Should confirm/save the invoice', async () => {
+    test('TC65 @regression @changeOrderAndinvoice : Should confirm/save the invoice with budget category', async () => {
         await invoicePage.clickAddInvoice();
 
-        // Fill invoice details (Title and Description only - no Amount field)
         const testTitle = `Invoice_${Date.now()}`;
         await invoicePage.fillInvoiceTitle(testTitle);
         await invoicePage.fillInvoiceDescription('Test Invoice for Save');
 
-        // Save the invoice
+        Logger.step('TC65: Setting budget category before saving');
+        const categoriesSet = await invoicePage.fillBudgetCategoryInInvoice('Construction');
+        expect(categoriesSet).toBeGreaterThan(0);
+        Logger.success(`TC65: Budget category set on ${categoriesSet} rows`);
+
         const saved = await invoicePage.saveInvoice();
-        if (saved) {
-            Logger.success('Invoice saved successfully.');
+        expect(saved).toBeTruthy();
+        Logger.success('TC65: Invoice saved successfully.');
 
-            // Wait for save to complete
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(1500);
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(1500);
 
-            // Navigate back to invoice list
-            await invoicePage.closeModal();
+        await invoicePage.closeModal();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(1000);
 
-            // Wait for page to fully load
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(1000);
-
-            Logger.success('Invoice creation completed');
-        } else {
-            Logger.info('Could not save invoice - Save button not found');
-        }
+        Logger.success('TC65: Invoice created with budget category and saved');
     });
 
-    test('TC66 @regression @invoice : Should verify invoice stats are displayed', async () => {
+    test('TC66 @regression @changeOrderAndinvoice : Should verify invoice stats are displayed', async () => {
         // Get invoice statistics
         const stats = await invoicePage.getInvoiceStats();
 
@@ -180,7 +176,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success(`Pending Invoices: ${stats.pending}`);
     });
 
-    test('TC67 @regression @invoice : Should cancel invoice creation without saving', async () => {
+    test('TC67 @regression @changeOrderAndinvoice : Should cancel invoice creation without saving', async () => {
         await invoicePage.clickAddInvoice();
 
         // Fill some invoice details
@@ -197,7 +193,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Invoice creation cancelled successfully.');
     });
 
-    test('TC68 @regression @invoice : Should verify invoice table is visible and contains data', async () => {
+    test('TC68 @regression @changeOrderAndinvoice : Should verify invoice table is visible and contains data', async () => {
         // Verify table is visible
         const tableVisible = await invoicePage.invoiceTable.isVisible({ timeout: 5000 }).catch(() => false);
         expect(tableVisible).toBeTruthy();
@@ -209,7 +205,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success(`Invoice table contains ${rowCount} rows.`);
     });
 
-    test('TC69 @regression @invoice : Should navigate between Invoice and Change Order tabs', async () => {
+    test('TC69 @regression @changeOrderAndinvoice : Should navigate between Invoice and Change Order tabs', async () => {
         // Start on Invoice tab
         await expect(page).toHaveURL(/tab=invoices/);
         Logger.success('Currently on Invoice tab.');
@@ -247,7 +243,7 @@ test.describe('Verify Invoice tab', () => {
         }
     });
 
-    test('TC70 @regression @invoice : Should fill invoice with all required fields', async () => {
+    test('TC70 @regression @changeOrderAndinvoice : Should fill invoice with all required fields', async () => {
         await invoicePage.clickAddInvoice();
 
         const testTitle = `Complete_Invoice_${Date.now()}`;
@@ -271,61 +267,51 @@ test.describe('Verify Invoice tab', () => {
         Logger.success(`Description field verified: ${descriptionValue}`);
     });
 
-    test('TC71 @regression @invoice : Should add and verify multiple invoices', async () => {
-        // Get initial row count
+    test('TC71 @regression @changeOrderAndinvoice : Should add and verify multiple invoices with budget category', async () => {
         const initialRowCount = await invoicePage.invoiceRows.count();
-        Logger.info(`Initial invoice count: ${initialRowCount}`);
+        Logger.info(`TC71: Initial invoice count: ${initialRowCount}`);
 
-        // Add first invoice
         await page.waitForTimeout(1000);
         await invoicePage.clickAddInvoice();
         const title1 = `Invoice_Multi_1_${Date.now()}`;
         await invoicePage.fillInvoiceTitle(title1);
         await invoicePage.fillInvoiceDescription('First invoice');
+
+        Logger.step('TC71: Setting budget category on first invoice');
+        const cat1 = await invoicePage.fillBudgetCategoryInInvoice('Construction');
+        expect(cat1).toBeGreaterThan(0);
+
         await invoicePage.saveInvoice();
         await page.waitForLoadState('networkidle');
 
-        // Navigate back to invoice list
         await invoicePage.closeModal();
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Wait for button to be available again
-        await page.waitForTimeout(1000);
-
-        // Try to add second invoice
-        let retries = 3;
-        while (retries > 0) {
-            try {
-                const buttonVisible = await invoicePage.addInvoiceButton.isVisible({ timeout: 5000 });
-                if (buttonVisible) {
-                    break;
-                }
-            } catch {
-                retries--;
-                await page.waitForTimeout(500);
-            }
-        }
+        await expect(invoicePage.addInvoiceButton).toBeVisible({ timeout: 10000 });
 
         await invoicePage.clickAddInvoice();
         const title2 = `Invoice_Multi_2_${Date.now()}`;
         await invoicePage.fillInvoiceTitle(title2);
         await invoicePage.fillInvoiceDescription('Second invoice');
+
+        Logger.step('TC71: Setting budget category on second invoice');
+        const cat2 = await invoicePage.fillBudgetCategoryInInvoice('Construction');
+        expect(cat2).toBeGreaterThan(0);
+
         await invoicePage.saveInvoice();
         await page.waitForLoadState('networkidle');
 
-        // Navigate back to invoice list
         await invoicePage.closeModal();
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Verify invoices were added by checking that rows exist
         const finalRowCount = await invoicePage.invoiceRows.count();
         expect(finalRowCount).toBeGreaterThanOrEqual(initialRowCount);
-        Logger.success(`Multiple invoices added. Total invoices: ${finalRowCount}`);
+        Logger.success(`TC71: Multiple invoices with budget category added. Total: ${finalRowCount}`);
     });
 
-    test('TC72 @regression @invoice : Should verify Add Invoice button is always available', async () => {
+    test('TC72 @regression @changeOrderAndinvoice : Should verify Add Invoice button is always available', async () => {
         // Verify button is visible on initial load
         await expect(invoicePage.addInvoiceButton).toBeVisible();
         Logger.success('Add Invoice button is visible on load.');
@@ -346,7 +332,7 @@ test.describe('Verify Invoice tab', () => {
         }
     });
 
-    test('TC73 @regression @invoice : Should verify invoice page content loads completely', async () => {
+    test('TC73 @regression @changeOrderAndinvoice : Should verify invoice page content loads completely', async () => {
         // Check page content
         const pageContent = await page.locator('body').textContent();
         expect(pageContent).toBeTruthy();
@@ -366,8 +352,8 @@ test.describe('Verify Invoice tab', () => {
         }
     });
 
-    test('TC74 @regression @invoice : Should add complete invoice with all fields and verify values', async () => {
-        Logger.step('Creating complete invoice with all fields...');
+    test('TC74 @regression @changeOrderAndinvoice : Should add complete invoice with all fields, set budget category, and verify values', async () => {
+        Logger.step('TC74: Creating complete invoice with budget category...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
@@ -376,54 +362,74 @@ test.describe('Verify Invoice tab', () => {
         };
         Logger.info(`Creating invoice: ${testData.title}`);
 
-        const result = await invoicePage.createCompleteInvoice(testData);
+        await invoicePage.clickAddInvoice();
+        await page.waitForTimeout(2000);
 
-        // Verify the invoice was created
-        expect(result.number).toBeTruthy();
-        expect(result.fieldsVerified).toBeTruthy();
+        const invoiceNumber = await invoicePage.getInvoiceNumber();
+        expect(invoiceNumber).toBeTruthy();
+        Logger.info(`Invoice number: ${invoiceNumber}`);
 
-        // Verify it appears in the list by invoice number (title is not displayed in list)
-        const isInList = await invoicePage.verifyInvoiceInList({ invoiceNumber: result.number });
+        await invoicePage.fillInvoiceDetails(testData);
+        const fieldsVerified = await invoicePage.verifyInvoiceFieldsInDialog(testData);
+        expect(fieldsVerified).toBeTruthy();
+
+        Logger.step('TC74: Setting budget category on invoice grid rows');
+        const categoriesSet = await invoicePage.fillBudgetCategoryInInvoice('Construction');
+        expect(categoriesSet).toBeGreaterThan(0);
+
+        const categoryValues = await invoicePage.getBudgetCategoryValues();
+        expect(categoryValues.length).toBeGreaterThan(0);
+        for (const val of categoryValues) {
+            expect(val).toBeTruthy();
+            expect(val).not.toBe('-');
+            expect(val).not.toBe('—');
+        }
+        Logger.success(`TC74: Budget category verified on ${categoryValues.length} rows: ${JSON.stringify(categoryValues)}`);
+
+        await invoicePage.goBackToInvoiceList();
+
+        const isInList = await invoicePage.verifyInvoiceInList({ invoiceNumber: invoiceNumber });
         expect(isInList).toBeTruthy();
 
-        Logger.success(`Complete invoice ${result.number} created and verified.`);
+        Logger.success(`TC74: Invoice ${invoiceNumber} created with budget category and verified in list`);
     });
 
-    test('TC75 @regression @invoice  : Should create multiple invoices with unique data', async () => {
-        Logger.step('Creating multiple invoices...');
+    test('TC75 @regression @changeOrderAndinvoice  : Should create multiple invoices with unique data and budget category', async () => {
+        Logger.step('TC75: Creating multiple invoices with budget category...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
         const createdInvoices = [];
 
-        // Create 3 invoices
         for (let i = 0; i < 3; i++) {
             const testData = {
                 ...invoiceTestData[i],
-                title: `${invoiceTestData[i].title}_${Date.now()}`
+                title: `${invoiceTestData[i].title}_${Date.now()}`,
+                budgetCategory: 'Construction'
             };
 
-            Logger.info(`Creating invoice ${i + 1}: ${testData.title}`);
+            Logger.info(`TC75: Creating invoice ${i + 1}: ${testData.title}`);
 
             const result = await invoicePage.createCompleteInvoice(testData);
-            createdInvoices.push(result);
+            expect(result.number).toBeTruthy();
+            expect(result.fieldsVerified).toBeTruthy();
+            expect(result.budgetCategoriesSet).toBeGreaterThan(0);
+            expect(result.budgetCategoryValues.length).toBeGreaterThan(0);
+            for (const val of result.budgetCategoryValues) {
+                expect(val).toBeTruthy();
+                expect(val).not.toBe('-');
+            }
+            Logger.success(`TC75: Invoice ${result.number} created with budget category: ${result.budgetCategoryValues[0]}`);
 
-            // Wait before creating the next invoice
+            createdInvoices.push(result);
             await page.waitForTimeout(1000);
         }
 
-        // Verify all invoices were created
         expect(createdInvoices.length).toBe(3);
-
-        for (const invoice of createdInvoices) {
-            expect(invoice.number).toBeTruthy();
-            Logger.success(`Invoice ${invoice.number} created: ${invoice.title}`);
-        }
-
-        Logger.success(`Successfully created ${createdInvoices.length} invoices.`);
+        Logger.success(`TC75: ${createdInvoices.length} invoices created with budget category`);
     });
 
-    test('TC76 @regression @invoice : Should verify invoice form fields are visible', async () => {
+    test('TC76 @regression @changeOrderAndinvoice : Should verify invoice form fields are visible', async () => {
         Logger.step('Verifying invoice form fields visibility...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -456,7 +462,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('All invoice form fields are visible.');
     });
 
-    test('TC77 @regression @invoice : Should verify invoice details grid columns', async () => {
+    test('TC77 @regression @changeOrderAndinvoice : Should verify invoice details grid columns', async () => {
         Logger.step('Verifying invoice details grid columns...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -492,7 +498,7 @@ test.describe('Verify Invoice tab', () => {
         await invoicePage.goBackToInvoiceList();
     });
 
-    test('TC78 @regression @invoice  : Should verify Confirm Invoice button functionality', async () => {
+    test('TC78 @regression @changeOrderAndinvoice  : Should verify Confirm Invoice button functionality', async () => {
         Logger.step('Testing Confirm Invoice button...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -520,41 +526,52 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Confirm Invoice button functionality verified.');
     });
 
-    test('TC79 @regression @invoice : Should verify Go Back button saves invoice', async () => {
-        Logger.step('Testing Go Back button functionality...');
+    test('TC79 @regression @changeOrderAndinvoice : Should verify Go Back button saves invoice with budget category', async () => {
+        Logger.step('TC79: Testing Go Back saves invoice with budget category...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Get initial invoice count
         const initialCount = await invoicePage.getInvoiceCount();
-        Logger.info(`Initial invoice count: ${initialCount}`);
+        Logger.info(`TC79: Initial invoice count: ${initialCount}`);
 
-        // Click Add Invoice to open the details page
         await invoicePage.clickAddInvoice();
         await page.waitForTimeout(2000);
 
-        // Fill invoice details
+        const invoiceNumber = await invoicePage.getInvoiceNumber();
+        expect(invoiceNumber).toBeTruthy();
+
         const testData = {
             title: `GoBack_Test_${Date.now()}`,
-            description: 'Testing go back button saves invoice'
+            description: 'Testing go back button saves invoice with budget category'
         };
 
         await invoicePage.fillInvoiceDetails(testData);
+        const fieldsVerified = await invoicePage.verifyInvoiceFieldsInDialog(testData);
+        expect(fieldsVerified).toBeTruthy();
 
-         await page.waitForLoadState('networkidle');
+        Logger.step('TC79: Setting budget category before Go Back');
+        const categoriesSet = await invoicePage.fillBudgetCategoryInInvoice('Construction');
+        expect(categoriesSet).toBeGreaterThan(0);
+
+        const categoryValues = await invoicePage.getBudgetCategoryValues();
+        expect(categoryValues.length).toBeGreaterThan(0);
+        for (const val of categoryValues) {
+            expect(val).toBeTruthy();
+            expect(val).not.toBe('-');
+        }
+
+        await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Click Go Back to save
         await invoicePage.goBackToInvoiceList();
 
-        // // Verify the invoice was saved
-        // const isInList = await invoicePage.verifyInvoiceInList({ title: testData.title });
-        // expect(isInList).toBeTruthy();
+        const isInList = await invoicePage.verifyInvoiceInList({ invoiceNumber: invoiceNumber });
+        expect(isInList).toBeTruthy();
 
-        Logger.success('Go Back button successfully saved the invoice.');
+        Logger.success(`TC79: Invoice ${invoiceNumber} saved via Go Back with budget category`);
     });
 
-    test('TC80 @regression @invoice : Should verify invoice document upload section', async () => {
+    test('TC80 @regression @changeOrderAndinvoice : Should verify invoice document upload section', async () => {
         Logger.step('Testing invoice document upload section...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -586,7 +603,7 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Document upload section verification completed.');
     });
 
-    test('TC81 @regression @invoice : Should export invoice data', async () => {
+    test('TC81 @regression @changeOrderAndinvoice : Should export invoice data', async () => {
         Logger.step('Testing export invoice data...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -599,36 +616,37 @@ test.describe('Verify Invoice tab', () => {
         }
     });
 
-    test('TC82 @regression @invoice : Should verify invoice stats update after adding invoice', async () => {
-        Logger.step('Verifying invoice stats...');
+    test('TC82 @regression @changeOrderAndinvoice : Should verify invoice stats update after adding invoice with budget category', async () => {
+        Logger.step('TC82: Verifying invoice stats with budget category...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Get initial stats
         const initialStats = await invoicePage.getInvoiceStats();
-        Logger.info(`Initial stats - Current Contract: ${initialStats.currentContract}, Pending: ${initialStats.pending}`);
+        expect(initialStats.currentContract).toBeTruthy();
+        expect(initialStats.pending).toBeTruthy();
+        Logger.info(`TC82: Initial stats - Current Contract: ${initialStats.currentContract}, Pending: ${initialStats.pending}`);
 
-        // Add a new invoice
         const testData = {
             title: `Stats_Test_${Date.now()}`,
-            description: 'Testing stats update after adding invoice'
+            description: 'Testing stats update after adding invoice with budget category',
+            budgetCategory: 'Construction'
         };
 
-        await invoicePage.createCompleteInvoice(testData);
+        const result = await invoicePage.createCompleteInvoice(testData);
+        expect(result.number).toBeTruthy();
+        expect(result.budgetCategoriesSet).toBeGreaterThan(0);
+        Logger.success(`TC82: Invoice ${result.number} created with budget category`);
 
-        // Get updated stats
         await page.waitForTimeout(2000);
         const updatedStats = await invoicePage.getInvoiceStats();
-        Logger.info(`Updated stats - Current Contract: ${updatedStats.currentContract}, Pending: ${updatedStats.pending}`);
-
-        // Verify stats are still displayed (values may or may not change depending on invoice content)
         expect(updatedStats.currentContract).toBeTruthy();
         expect(updatedStats.pending).toBeTruthy();
+        Logger.info(`TC82: Updated stats - Current Contract: ${updatedStats.currentContract}, Pending: ${updatedStats.pending}`);
 
-        Logger.success('Invoice stats verified successfully.');
+        Logger.success('TC82: Invoice stats verified after adding invoice with budget category');
     });
 
-    test('TC83 @regression @invoice : Should verify invoice number is auto-generated', async () => {
+    test('TC83 @regression @changeOrderAndinvoice : Should verify invoice number is auto-generated', async () => {
         Logger.step('Verifying invoice number auto-generation...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -649,7 +667,7 @@ test.describe('Verify Invoice tab', () => {
         await invoicePage.goBackToInvoiceList();
     });
 
-    test('TC84 @regression @invoice : Should verify invoice form validation', async () => {
+    test('TC84 @regression @changeOrderAndinvoice : Should verify invoice form validation', async () => {
         Logger.step('Verifying invoice form behavior...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -669,62 +687,41 @@ test.describe('Verify Invoice tab', () => {
         Logger.success('Invoice form validation verified - invoice can be created with just number.');
     });
 
-    test.skip('TC85 @regression @invoice  : Should create 5 complete invoices with all fields', async () => {
-        Logger.step('Creating 5 complete invoices with all fields...');
+    test('TC85 @regression @changeOrderAndinvoice : Should create 5 complete invoices with budget category and save via Go Back', async () => {
+        Logger.step('TC85: Creating 5 complete invoices with budget category (save via Go Back, no confirm)...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
         const createdInvoices = [];
 
-        // Create 5 invoices with unique data
         for (let i = 0; i < 5; i++) {
-            const amount = getRandomAmount();
             const testData = {
                 title: `${invoiceTestData[i].title}_${Date.now()}`,
                 description: invoiceTestData[i].description,
-                amount,
-                confirm: true
+                budgetCategory: 'Construction'
             };
 
-            Logger.info(`Creating invoice ${i + 1}/5: ${testData.title}`);
+            Logger.info(`TC85: Creating invoice ${i + 1}/5: ${testData.title}`);
 
             const result = await invoicePage.createCompleteInvoice(testData);
 
-            // Assertions: form fields filled
             expect(result.fieldsVerified).toBeTruthy();
-
-            // Assertions: amount committed
-            expect(result.amountFilled).toBeTruthy();
-            expect(result.amountCellText).toBeTruthy();
-            const amountDigits = String(amount).replace(/\D/g, '');
-            const cellDigits = String(result.amountCellText).replace(/\D/g, '');
-            expect(cellDigits).toContain(amountDigits);
-
-            // Assertions: confirm succeeded (no failure toast)
-            expect(result.confirmed).toBeTruthy();
-
-            // Note: we do not re-open each invoice after creation; stability is higher by asserting in-dialog + confirm success.
+            expect(result.budgetCategoriesSet).toBeGreaterThan(0);
+            expect(result.budgetCategoryValues.length).toBeGreaterThan(0);
+            for (const val of result.budgetCategoryValues) {
+                expect(val).toBeTruthy();
+                expect(val).not.toBe('-');
+            }
 
             createdInvoices.push(result);
-            Logger.success(`Invoice ${i + 1} created: ${result.number} (Amount: ${amount})`);
+            Logger.success(`TC85: Invoice ${i + 1} created: ${result.number} (Budget: ${result.budgetCategoryValues[0]})`);
 
-            // Wait before creating the next invoice
             await page.waitForTimeout(1500);
         }
 
-        // Verify all 5 invoices were created
         expect(createdInvoices.length).toBe(5);
-
-        Logger.success(`Successfully created ${createdInvoices.length} invoices with all fields.`);
-
-        // Log all created invoices
-        for (const invoice of createdInvoices) {
-            Logger.info(`Created: ${invoice.number} - ${invoice.title}`);
-        }
+        Logger.success(`TC85: Successfully created ${createdInvoices.length} invoices with budget category`);
     });
-
-
-
 
 });
 

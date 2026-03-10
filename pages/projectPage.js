@@ -3,6 +3,7 @@ const { Logger } = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const { propertyLocators } = require('../locators/propertyLocator');
+const { projectJobLocators } = require('../locators/projectPageLocator');
 
 exports.ProjectPage = class ProjectPage {
     constructor(page) {
@@ -1186,6 +1187,49 @@ exports.ProjectPage = class ProjectPage {
 
     async openContractsTab() {
         await this.contractsTab.click();
+    }
+
+    async selectAllContractRows() {
+        const loc = projectJobLocators(this.page);
+        await loc.contractsScopeHeader.waitFor({ state: 'visible', timeout: 15000 });
+        let rowCheckboxes = loc.contractRowCheckboxes;
+        let count = await rowCheckboxes.count();
+        if (count === 0) {
+            rowCheckboxes = loc.contractAltCheckboxes;
+            count = await rowCheckboxes.count();
+            Logger.info('Fallback checkboxes found: ' + count);
+        } else {
+            Logger.info('Row checkboxes found: ' + count);
+        }
+        if (count === 0) throw new Error('No row selection checkboxes found in grid');
+        for (let i = 0; i < count; i++) {
+            const cb = rowCheckboxes.nth(i);
+            if (!(await cb.isChecked().catch(() => false))) {
+                await cb.scrollIntoViewIfNeeded();
+                await cb.click({ force: true });
+                await this.page.waitForTimeout(150);
+            }
+        }
+    }
+
+    async bulkUpdateContractsToInProgress() {
+        const loc = projectJobLocators(this.page);
+        await this.openContractsTab();
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1000);
+        await this.selectAllContractRows();
+        Logger.step('Open Bulk Update Status menu');
+        await expect(loc.bulkUpdateStatusBtn).toBeVisible({ timeout: 5000 });
+        await expect(loc.bulkUpdateStatusBtn).toBeEnabled({ timeout: 5000 });
+        await loc.bulkUpdateStatusBtn.click();
+        Logger.step('Select "In Progress" from the menu');
+        await expect(loc.bulkUpdateInProgressItem).toBeVisible({ timeout: 5000 });
+        await loc.bulkUpdateInProgressItem.click();
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1500);
+        Logger.step('Assert status successfully changed to In Progress');
+        await expect(loc.inProgressStatusText).toBeVisible({ timeout: 5000 });
+        Logger.success('Status successfully changed to In Progress');
     }
 
     async openFinalizeContractModal() {

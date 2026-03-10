@@ -47,7 +47,7 @@ test.describe('Manage Organization Flow ', () => {
     await applyZoom(page);
   });
 
-  test('@sanity @organization TC09 - Invite new user to organization with Member role', async () => {
+  test('@sanity @regression TC09 - Invite new user to organization with Member role', async () => {
     const email = `member_${Date.now()}@yopmail.com`;
     await org.inviteUser(email, 'Member');
     await applyZoom(page);
@@ -57,7 +57,7 @@ test.describe('Manage Organization Flow ', () => {
     expect(await org.visibleRowCount()).toBeGreaterThan(0);
   });
 
-  test('@sanity @organization TC10 - Invite new user to organization with Admin role', async () => {
+  test('@sanity @regression TC10 - Invite new user to organization with Admin role', async () => {
     const email = `admin_${Date.now()}@yopmail.com`;
     await org.inviteUser(email, 'Admin');
     await applyZoom(page);
@@ -67,7 +67,7 @@ test.describe('Manage Organization Flow ', () => {
     expect(await org.visibleRowCount()).toBeGreaterThan(0);
   });
 
-  test('@sanity @organization TC11 - Revoke user invitation to organization', async () => {
+  test('@sanity @regression TC11 - Revoke user invitation to organization', async () => {
     const email = `revoke_${Date.now()}@yopmail.com`;
     await org.inviteUser(email, 'Admin');
     await applyZoom(page);
@@ -79,7 +79,7 @@ test.describe('Manage Organization Flow ', () => {
     await org.verifyNoResults();
   });
 
-  test('@sanity @organization TC12 - Resend user invitation to organization', async () => {
+  test('@sanity @regression TC12 - Resend user invitation to organization', async () => {
     await org.goto(data.organizationUrl);
     await applyZoom(page);
     const email = `revoke_${Date.now()}@yopmail.com`;
@@ -93,7 +93,7 @@ test.describe('Manage Organization Flow ', () => {
     await org.verifyResendSuccess(email);
   });
 
-  test('@sanity @organization TC13 - Edit user role to organization', async () => {
+  test('@sanity @regression TC13 - Edit user role to organization', async () => {
     const email = 'tailorbird-admin@tailorbird.us';
     await org.search(email);
     await applyZoom(page);

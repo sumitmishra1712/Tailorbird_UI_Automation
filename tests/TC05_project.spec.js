@@ -26,17 +26,17 @@ test.beforeEach(async ({ page }) => {
     await page.waitForLoadState('networkidle');
 });
 
-test('TC29 @regression @project : Navigate to Projects & Jobs and verify page loads successfully within 2 seconds and zero console error', async ({ page }) => {
+test('TC29 @regression @projectAndJob : Navigate to Projects & Jobs and verify page loads successfully within 2 seconds and zero console error', async ({ page }) => {
     await projectPage.navigateToProjects();
 });
 
-test('TC30 @regression @project : User should be able to Open Create Project modal and verify all fields are visible', async () => {
+test('TC30 @regression @projectAndJob : User should be able to Open Create Project modal and verify all fields are visible', async () => {
     await projectPage.navigateToProjects();
     await projectPage.openCreateProjectModal();
     await projectPage.verifyModalFields();
 });
 
-test('TC31 @regression @mandatory @project @bid : User should be able to Fill Create Project form, submit, and verify project details on dashboard', async ({ page }) => {
+test('TC31 @regression @sanity @mandatory @projectAndJob @contract : User should be able to Fill Create Project form, submit, and verify project details on dashboard', async ({ page }) => {
     const propertyDataPath = path.join(__dirname, '../data/propertyData.json');
     const propertyData = JSON.parse(fs.readFileSync(propertyDataPath, 'utf8'));
     const propertyName = propertyData.propertyName;
@@ -66,27 +66,27 @@ test('TC31 @regression @mandatory @project @bid : User should be able to Fill Cr
     }
 });
 
-test('TC32 @regression @project : User should be able to search project using partial name and verify matching results', async () => {
+test('TC32 @regression @projectAndJob : User should be able to search project using partial name and verify matching results', async () => {
     await projectPage.navigateToProjects();
     await prop.changeView('Table View');
     await projectPage.searchProject('Automa_Test');
 });
 
-test('TC33 @regression @project : User should be able to apply filter and export project', async () => {
+test('TC33 @regression @projectAndJob : User should be able to apply filter and export project', async () => {
     await projectPage.navigateToProjects();
     await prop.changeView('Table View');
     await projectJob.applyFilterAndExport('Harbor Bay at MacDill_Liberty Cove (Sample Property 1)', 'Automa_Test');
     await projectJob.deleteFirstProjectRow();
 });
 
-test('TC34 @regression @project : Validate cancel button closes without saving.', async () => {
+test('TC34 @regression @projectAndJob : Validate cancel button closes without saving.', async () => {
     await projectPage.navigateToProjects();
     await prop.changeView('Table View');
     await projectPage.openCreateProjectModal();
     await projectPage.verifyModalClosed();
 });
 
-test('TC35 @regression @project : Validate Create Project form mandatory fields assertion, property dropdown options and date can be filled directly without using calender', async () => {
+test('TC35 @regression @projectAndJob : Validate Create Project form mandatory fields assertion, property dropdown options and date can be filled directly without using calender', async () => {
     await projectPage.navigateToProjects();
     await projectPage.openCreateProjectModal();
     await projectPage.validateMandatoryFields();

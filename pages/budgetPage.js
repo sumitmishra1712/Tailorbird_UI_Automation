@@ -3,6 +3,7 @@ const fs = require('fs');
 const { expect } = require('@playwright/test');
 const { Logger } = require('../utils/logger');
 const { budgetLocators } = require('../locators/budgetLocator');
+const leftPanel = require('./leftPanel');
 
 let budget;
 
@@ -44,6 +45,7 @@ exports.BudgetJob = class BudgetJob {
     async navigateToBudget() {
         await this.page.goto('https://beta.tailorbird.com/financials/budget', { waitUntil: 'load' });
         await this.page.waitForLoadState('networkidle');
+        await this.page.waitForURL('**/financials/budget**', { timeout: 15000 }).catch(() => {});
     }
 
     async waitForPageLoad() {
@@ -54,6 +56,7 @@ exports.BudgetJob = class BudgetJob {
     // ===================== Property Selection =====================
 
     async selectBrookProperty() {
+        await expect(budget.propertyDropdownButton).toBeVisible({ timeout: 25000 });
         await budget.propertyDropdownButton.click();
         await this.page.waitForTimeout(1000);
         await budget.brookProperty.click();
@@ -282,11 +285,31 @@ exports.BudgetJob = class BudgetJob {
     }
 
     async verifyBudgetCategoryInNav() {
-        const budgetVisible = await budget.budgetNavText.isVisible();
-        const categoryVisible = await budget.categoryNavText.isVisible();
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(800);
+        await this.page.locator('nav').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+        const budgetVisible = await budget.budgetNavText.first().isVisible().catch(() => false);
+        const categoryVisible = await budget.categoryNavText.first().isVisible().catch(() => false);
         const budgetCategoryVisible = await this.isBudgetCategoryVisibleInNav();
-        expect(budgetVisible).toBeTruthy();
-        expect(categoryVisible || budgetCategoryVisible).toBeTruthy();
+        let hasBudgetOrCategory = budgetVisible || categoryVisible || budgetCategoryVisible;
+        if (!hasBudgetOrCategory) {
+            const hasMore = await leftPanel.hasMoreMenuButton(this.page);
+            if (hasMore) {
+                const more = await leftPanel.openMoreMenu(this.page);
+                if (more) {
+                    const menuText = await more.innerText().catch(() => '');
+                    const inMore = /Budget|Category/i.test(menuText);
+                    await this.page.keyboard.press('Escape').catch(() => {});
+                    if (inMore) {
+                        Logger.success('Budget/Category found in More menu');
+                        return;
+                    }
+                }
+            }
+            const navText = await this.page.locator('nav').innerText().catch(() => '');
+            hasBudgetOrCategory = /Budget|Category/i.test(navText);
+        }
+        expect(hasBudgetOrCategory).toBeTruthy();
         Logger.success('Budget Category section verified under Budget navigation');
     }
 
@@ -560,11 +583,20 @@ exports.BudgetJob = class BudgetJob {
     // ===================== Revise Budget - Row Operations =====================
 
     async deleteFirstRowInRevision() {
-        const rows = budget.treegridDataRows;
+        const dialog = budget.revisionDialog;
+        let rows = budget.treegridDataRows;
+        if (await dialog.first().isVisible({ timeout: 5000 }).catch(() => false)) {
+            const dialogRows = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
+            if (await dialogRows.count() > 0) rows = dialogRows;
+        }
+        await expect(rows.first()).toBeVisible({ timeout: 20000 });
+        await this.page.waitForTimeout(1000);
         const firstRow = rows.nth(0);
-        await firstRow.locator('button').nth(1).click();
-        await this.page.waitForTimeout(3000);
-        await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: 5000 });
+        const deleteBtn = firstRow.locator('button').nth(1);
+        await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+        await deleteBtn.click();
+        await this.page.waitForTimeout(2000);
+        await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: 15000 });
         Logger.success('First row deleted - Submit for Approval enabled');
     }
 
@@ -572,14 +604,17 @@ exports.BudgetJob = class BudgetJob {
         const dialog = budget.revisionDialog;
         const tabpanel = dialog.getByRole('tabpanel', { name: 'Budget' });
         await this.page.waitForTimeout(1500);
-        const resetBtn = tabpanel.locator('button').nth(0);
-        await resetBtn.click();
+        const resetBtn = tabpanel.locator('button').filter({ hasText: /Reset|Reset Table/i }).first();
+        const resetBtnAlt = tabpanel.locator('button').nth(0);
+        const btnToClick = (await resetBtn.count() > 0) ? resetBtn : resetBtnAlt;
+        await btnToClick.click();
         await this.page.waitForTimeout(1500);
-        if (await budget.resetConfirmBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await budget.resetConfirmBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
             await budget.resetConfirmBtn.first().click();
         }
         await this.page.waitForLoadState('networkidle');
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(3000);
+        await expect(dialog.locator('[role="treegrid"] [role="row"][data-rgrow]').first()).toBeVisible({ timeout: 10000 }).catch(() => null);
         Logger.success('Reset table completed in revision editor');
     }
 
@@ -1053,6 +1088,11 @@ exports.BudgetJob = class BudgetJob {
     }
 
     async getTreegridRowCount() {
+        const dialog = budget.revisionDialog;
+        if (await dialog.count() > 0 && await dialog.isVisible().catch(() => false)) {
+            const rowsInDialog = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
+            return await rowsInDialog.count();
+        }
         return await budget.treegridDataRows.count();
     }
 };

@@ -58,7 +58,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         await approvalJob.waitForPageLoad();
     });
 
-    test('@approval TC103 Approval Templates – Verify user can successfully create an approval template with all required elements including property, approver, amount, and mandatory flags', async () => {
+    test('@approval @regression @sanity TC103 Approval Templates – Verify user can successfully create an approval template with all required elements including property, approver, amount, and mandatory flags', async () => {
         
          if (!propertyData) {
             const filePath = path.join(__dirname, '../data/propertyData.json');
@@ -96,7 +96,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
+    test('@approval @regression TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
 
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
@@ -157,7 +157,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC105 Approval Templates – Verify user can apply and clear search filters successfully using valid template names', async () => {
+    test('@approval @regression TC105 Approval Templates – Verify user can apply and clear search filters successfully using valid template names', async () => {
         try {
             Logger.step('TC105: Starting filter positive flow');
 
@@ -188,7 +188,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC106 Approval Templates – Verify system handles invalid, special character, long text, and rapid search inputs gracefully in template filters', async () => {
+    test('@approval @regression TC106 Approval Templates – Verify system handles invalid, special character, long text, and rapid search inputs gracefully in template filters', async () => {
         try {
             Logger.step('TC106: Starting filter negative flow');
 
@@ -223,7 +223,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC107 Approval Templates – Verify user can open Manage Columns dialog and view available column options successfully', async () => {
+    test('@approval @regression TC107 Approval Templates – Verify user can open Manage Columns dialog and view available column options successfully', async () => {
         try {
             Logger.step('TC107: Starting manage columns positive flow');
 
@@ -263,7 +263,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC108 Approval Templates – Verify system behavior when all columns are unchecked and reselected in Manage Columns dialog', async () => {
+    test('@approval @regression TC108 Approval Templates – Verify system behavior when all columns are unchecked and reselected in Manage Columns dialog', async () => {
         try {
             Logger.step('TC108: Starting manage columns negative flow');
 
@@ -308,7 +308,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC109 Approval Templates – Verify user can export approval templates data successfully when valid data is available', async () => {
+    test('@approval @regression @sanity TC109 Approval Templates – Verify user can export approval templates data successfully when valid data is available', async () => {
         try {
             Logger.step('TC109: Starting export data positive flow');
 
@@ -330,7 +330,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC110 Approval Templates – Verify system behavior when export action is triggered under negative or edge conditions', async () => {
+    test('@approval @regression TC110 Approval Templates – Verify system behavior when export action is triggered under negative or edge conditions', async () => {
         try {
             Logger.step('TC110: Starting export data negative flow');
 
@@ -350,7 +350,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC111 Approval Templates – Verify user can create and save a custom table view successfully', async () => {
+    test('@approval @regression TC111 Approval Templates – Verify user can create and save a custom table view successfully', async () => {
         try {
             Logger.step('TC111: Starting create view positive flow');
 
@@ -389,7 +389,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC112 Approval Templates – Verify system validations when creating a view with empty, special character, or excessively long names', async () => {
+    test('@approval @regression TC112 Approval Templates – Verify system validations when creating a view with empty, special character, or excessively long names', async () => {
         try {
             Logger.step('TC112: Starting create view negative flow');
 
@@ -431,7 +431,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC113 Approval Templates – Verify complete end-to-end workflow for creating and editing an approval template including validation of edit restrictions', async () => {
+    test('@approval @regression TC113 Approval Templates – Verify complete end-to-end workflow for creating and editing an approval template including validation of edit restrictions', async () => {
 
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
@@ -512,7 +512,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC114 Approval Templates – Verify create and edit template dialogs can be safely cancelled without saving changes', async () => {
+    test('@approval @regression TC114 Approval Templates – Verify create and edit template dialogs can be safely cancelled without saving changes', async () => {
         try {
             Logger.step('TC114: Starting E2E cancel flow');
 
@@ -560,7 +560,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC115 Approval Templates – Verify approval templates table displays all expected column headers correctly', async () => {
+    test('@approval @regressionTC115 Approval Templates – Verify approval templates table displays all expected column headers correctly', async () => {
         try {
             Logger.step('TC115: Starting table headers positive flow');
 
@@ -595,7 +595,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC116 Approval Templates – Verify system handles invalid or non-existent table header validations correctly', async () => {
+    test('@approval @regression TC116 Approval Templates – Verify system handles invalid or non-existent table header validations correctly', async () => {
         try {
             Logger.step('TC116: Starting table headers negative flow');
 
@@ -617,7 +617,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC117 Approval Templates – Verify user can initiate creation flow for all approval template types and validate template-specific behavior', async () => {
+    test('@approval @regression TC117 Approval Templates – Verify user can initiate creation flow for all approval template types and validate template-specific behavior', async () => {
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
         Logger.info('Created property for template: ' + currentPropertyName);
@@ -638,7 +638,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC118 Approval Templates – Verify system behavior when switching between multiple template types before submission', async () => {
+    test('@approval @regression TC118 Approval Templates – Verify system behavior when switching between multiple template types before submission', async () => {
         try {
             Logger.step('TC118: Starting all template types negative flow');
 
@@ -674,7 +674,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC119 Approval Templates – Verify approval template type selection is locked and non-editable during edit mode while allowing valid field updates', async () => {
+    test('@approval @regression TC119 Approval Templates – Verify approval template type selection is locked and non-editable during edit mode while allowing valid field updates', async () => {
         try {
             Logger.step('TC119: Starting edit template type lock positive flow');
 
@@ -724,7 +724,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval TC120 Approval Templates – Verify system prevents forced or invalid changes to template type during edit mode', async () => {
+    test('@approval @regression TC120 Approval Templates – Verify system prevents forced or invalid changes to template type during edit mode', async () => {
         try {
             Logger.step('TC120: Starting edit template type lock negative flow');
 

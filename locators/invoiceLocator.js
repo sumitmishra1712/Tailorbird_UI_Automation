@@ -69,6 +69,14 @@ function invoiceLocators(page) {
         // Export Button
         exportButton: page.locator('button:has(svg.lucide-download)').first(),
         
+        // Budget Category in Invoice Details Grid
+        budgetCategoryHeader: page.getByRole('columnheader', { name: 'Budget Category' }),
+        budgetCategoryCells: page.locator('[role="gridcell"][data-rgcol]').filter({ hasText: /^-$|Construction|Electrical|Plumbing|HVAC|Finishes|Landscaping|Roofing|Carpentry/ }),
+        budgetCategorySearchInput: page.getByPlaceholder('Search or type to create...'),
+        budgetCategoryListbox: page.getByRole('listbox'),
+        budgetCategoryOption: (text) => page.getByRole('option', { name: new RegExp(text, 'i') }),
+        budgetCategoryFirstOption: page.getByRole('option').first(),
+
         // Invoice Amount Grid Cell Locators
         invoiceAmountCellWithDollar: page.locator('div[role="gridcell"]').filter({ has: page.locator('span:text("$")') }).first(),
         invoiceAmountCellByColumn: (colIndex) => page.locator(`div[role="gridcell"][data-rgcol="${colIndex}"]`).first(),

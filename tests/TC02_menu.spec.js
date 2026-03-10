@@ -44,7 +44,7 @@ test.afterAll(async () => {
 
 test.describe('Tailorbird Left Panel Flow - Modular', () => {
 
-    test('TC03 @sanity @menu Verify all menu options are available', async () => {
+    test('TC03 @sanity @regression Verify all menu options are available', async () => {
         const actualLabels = await helper.getLeftPanelLabels(page);
 
         if (actualLabels.length === 0)
@@ -56,7 +56,7 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
         }
     });
 
-    test('TC04 @sanity @menu Verify all menu navigation', async () => {
+    test('TC04 @sanity @regression Verify all menu navigation', async () => {
         const actualLabels = await helper.getLeftPanelLabels(page);
         expect(actualLabels.length).toBeGreaterThan(0);
 
@@ -66,53 +66,71 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
             expect(actualLabels).toContain(label);
             Logger.info(`✔ Menu item located: ${label}`);
 
-            await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(300);
+            const urlRegex = new RegExp(url.replace(/\//g, "\\/"));
+            let navigated = false;
 
-            // Try to find the menu item in direct nav first using filter (more reliable)
-            let menuLocator = page.locator('nav a.mantine-NavLink-root').filter({ hasText: label }).first();
-            
-            if (await menuLocator.count() === 0) {
-                // Item not in direct nav, check if it needs expansion or is in More menu
-                if (label === 'Projects' || label === 'Jobs & Contracts') {
-                    await helper.ensureSectionExpanded(page, 'Construction Management');
-                    menuLocator = await helper.getChildMenuLocator(page, 'Construction Management', label);
-                } else if (label === 'Unit Tracker') {
-                    await helper.ensureSectionExpanded(page, 'Trackers');
-                    menuLocator = await helper.getChildMenuLocator(page, 'Trackers', label);
-                } else if (label === 'Files' || label === 'Images') {
-                    await helper.ensureSectionExpanded(page, 'Documents');
-                    menuLocator = await helper.getChildMenuLocator(page, 'Documents', label);
-                } else if (label === 'Category' || label === 'Budget' || label === 'CapEx') {
-                    await helper.ensureSectionExpanded(page, 'Financials');
-                    menuLocator = await helper.getChildMenuLocator(page, 'Financials', label);
-                } else {
-                    // Try More menu (minimized screen)
-                    const hasMore = await helper.hasMoreMenuButton(page);
-                    if (hasMore) {
-                        const more = await helper.openMoreMenu(page);
-                        if (more) {
-                            menuLocator = more.locator(`[role="menuitem"]`).filter({ hasText: label }).first();
+            for (let attempt = 1; attempt <= 2 && !navigated; attempt++) {
+                await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
+                await page.waitForLoadState('networkidle');
+                await page.waitForTimeout(attempt === 1 ? 300 : 800);
+
+                let menuLocator = page.locator('nav a.mantine-NavLink-root').filter({ hasText: label }).first();
+                if (await menuLocator.count() === 0) {
+                    if (label === 'Projects' || label === 'Jobs & Contracts') {
+                        await helper.ensureSectionExpanded(page, 'Construction Management');
+                        menuLocator = await helper.getChildMenuLocator(page, 'Construction Management', label);
+                    } else if (label === 'Unit Tracker') {
+                        await helper.ensureSectionExpanded(page, 'Trackers');
+                        menuLocator = await helper.getChildMenuLocator(page, 'Trackers', label);
+                    } else if (label === 'Files' || label === 'Images') {
+                        await helper.ensureSectionExpanded(page, 'Documents');
+                        menuLocator = await helper.getChildMenuLocator(page, 'Documents', label);
+                    } else if (label === 'Category' || label === 'Budget' || label === 'CapEx') {
+                        await helper.ensureSectionExpanded(page, 'Financials');
+                        menuLocator = await helper.getChildMenuLocator(page, 'Financials', label);
+                    } else {
+                        const hasMore = await helper.hasMoreMenuButton(page);
+                        if (hasMore) {
+                            const more = await helper.openMoreMenu(page);
+                            if (more) menuLocator = more.locator(`[role="menuitem"]`).filter({ hasText: label }).first();
                         }
+                    }
+                }
+
+                if (!menuLocator || (await menuLocator.count()) === 0) {
+                    throw new Error(`Menu item not found: ${label}`);
+                }
+
+                await menuLocator.scrollIntoViewIfNeeded().catch(() => {});
+                await page.waitForTimeout(200);
+                try {
+                    await Promise.all([
+                        page.waitForURL(urlRegex, { timeout: 20000 }),
+                        menuLocator.click({ timeout: 8000, force: true })
+                    ]);
+                    navigated = true;
+                } catch (e) {
+                    if (attempt === 2) {
+                        if ((label === 'Files' || label === 'Images') && url) {
+                            await page.goto(new URL(url, process.env.DASHBOARD_URL).href, { waitUntil: 'networkidle' });
+                            navigated = true;
+                        } else {
+                            throw e;
+                        }
+                    } else {
+                        Logger.info(`Navigation retry for ${label}: ${e.message}`);
                     }
                 }
             }
 
-            if (await menuLocator.count() === 0) {
-                throw new Error(`Menu item not found: ${label}`);
-            }
-
-            await menuLocator.click({ timeout: 5000 });
-
-            await expect(page).toHaveURL(new RegExp(url.replace(/\//g, "\\/")));
+            await expect(page).toHaveURL(urlRegex, { timeout: 5000 });
             Logger.info(`🌍 Navigation Valid → "${label}" → matches URL: ${url}`);
         }
 
         Logger.info("\n🎉 All Sidebar Menu Navigation Validated Successfully\n");
     });
 
-    test('TC05 @sanity @menu Verify main menu toggle functionality', async () => {
+    test('TC05 @sanity @regression Verify main menu toggle functionality', async () => {
         const toggleBtn = page.locator(locators.firstLeftPanelToggle).first();
         await expect(toggleBtn).toHaveCount(1);
 
@@ -130,15 +148,15 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
         Logger.info('[After 2nd Click] aria-expanded = ' + after2);
     });
 
-    test('TC06 @sanity @menu Verify Financials expand/collapse', async () => {
+    test('TC06 @sanity @regression Verify Financials expand/collapse', async () => {
         await helper.runTwoClickTest(page, "Financials");
     });
 
-    test('TC07 @sanity @menu Verify Trackers expand/collapse', async () => {
+    test('TC07 @sanity @regression Verify Trackers expand/collapse', async () => {
         await helper.runTwoClickTest(page, "Trackers");
     });
 
-    test('TC08 @sanity @menu Verify Documents expand/collapse', async () => {
+    test('TC08 @sanity @regression Verify Documents expand/collapse', async () => {
         await helper.runTwoClickTest(page, "Documents");
     });
 

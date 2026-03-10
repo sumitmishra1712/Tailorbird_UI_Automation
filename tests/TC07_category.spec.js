@@ -104,7 +104,7 @@ test.describe('Verify category tab', () => {
         await projectPage.assertRowCountAfterReset();
     });
 
-    test('TC57 @regression @category : Validate Upload category option is working as expected', async () => {
+    test('TC57 @regression @category @sanity : Validate Upload category option is working as expected', async () => {
         await financialsCategoryPage.goToCategory();
         await expect(page).toHaveURL(/\/category/);
         await financialsCategoryPage.uploadCategory(path.resolve("./files/category_data.csv"));
@@ -126,7 +126,7 @@ test.describe('Verify category tab', () => {
         await prop.deleteRow();
     });
 
-    test('TC60 @sanity @category : filter option is working as expected', async () => {
+    test('TC60 @sanity @regression @category : filter option is working as expected', async () => {
         // Navigate to the category page with specific URL
         await page.goto('https://beta.tailorbird.com/financials/category?propertyId=765', { waitUntil: 'networkidle' });
         // await financialsCategoryPage.goToCategory();

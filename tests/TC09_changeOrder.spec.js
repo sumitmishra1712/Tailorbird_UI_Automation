@@ -86,13 +86,13 @@ test.describe('Verify Change order tab', () => {
         });
     });
 
-    test('TC86 @regression @changeOrder : Should navigate to Change Order page and verify URL', async () => {
+    test('TC86 @regression @changeOrderAndinvoice : Should navigate to Change Order page and verify URL', async () => {
         Logger.step('Verifying Change Order tab is loaded...');
         await expect(page).toHaveURL(/Change|order|contract/i);
         Logger.success('Change Order tab is loaded successfully.');
     });
 
-    test('TC87 @regression @changeOrder : Should load Change Order page content and not be blank', async () => {
+    test('TC87 @regression @changeOrderAndinvoice : Should load Change Order page content and not be blank', async () => {
         Logger.step('Checking Change Order page content...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(1000);
@@ -101,7 +101,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Change Order page content is loaded.');
     });
 
-    test('TC88 @regression @changeOrder : Should show Add Change Order button', async () => {
+    test('TC88 @regression @changeOrderAndinvoice : Should show Add Change Order button', async () => {
         Logger.step('Looking for Add Change Order button...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -112,7 +112,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Add Change Order button is visible.');
     });
 
-    test('TC89 @regression @changeOrder : Should add new change order and open details page', async () => {
+    test('TC89 @regression @changeOrderAndinvoice : Should add new change order and open details page', async () => {
         Logger.step('Adding new change order...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -132,7 +132,7 @@ test.describe('Verify Change order tab', () => {
         }
     });
 
-    test('TC90 @regression @changeOrder : Should enter change order title and required information', async () => {
+    test('TC90 @regression @changeOrderAndinvoice : Should enter change order title and required information', async () => {
         Logger.step('Creating and filling change order details...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -151,7 +151,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Change order details filled successfully.');
     });
 
-    test('TC91 @regression @changeOrder : Should upload PNG image for change order', async () => {
+    test('TC91 @regression @changeOrderAndinvoice : Should upload PNG image for change order', async () => {
         Logger.step('Uploading PNG image for change order...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -179,7 +179,7 @@ test.describe('Verify Change order tab', () => {
         await invoicePage.uploadChangeOrderImage(testImagePath);
     });
 
-    test('TC92 @regression @changeOrder : Should export change order data', async () => {
+    test('TC92 @regression @changeOrderAndinvoice : Should export change order data', async () => {
         Logger.step('Exporting change order data...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -192,7 +192,7 @@ test.describe('Verify Change order tab', () => {
         }
     });
 
-    test('TC93 @regression @changeOrder : Should add data to change order and save', async () => {
+    test('TC93 @regression @changeOrderAndinvoice : Should add data to change order and save', async () => {
         Logger.step('Adding data to change order and saving...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -218,7 +218,7 @@ test.describe('Verify Change order tab', () => {
         }
     });
 
-    test('TC94 @regression @changeOrder : Should verify change order was added to list', async () => {
+    test('TC94 @regression @changeOrderAndinvoice : Should verify change order was added to list', async () => {
         Logger.step('Verifying change order was added to the list...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -228,17 +228,17 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Change order was successfully added to the list.');
     });
 
-    test('TC95 @regression @changeOrder : Should add complete change order with all fields and verify values', async () => {
+    test('TC95 @regression @changeOrder @changeOrderAndinvoice : Should add complete change order with all fields, verify values, and assert snapshot/Revised Contract Amount', async () => {
         Logger.step('Creating complete change order with all fields...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
-        // Add random amount to test data
+        const changeOrderAmount = getRandomAmount();
         const testData = {
             ...changeOrderTestData[0],
-            amount: getRandomAmount()
+            amount: changeOrderAmount
         };
-        Logger.info(`Creating change order with amount: $${testData.amount}`);
+        Logger.info(`Creating change order with amount: $${changeOrderAmount}`);
 
         const result = await invoicePage.createCompleteChangeOrder(testData);
 
@@ -247,9 +247,37 @@ test.describe('Verify Change order tab', () => {
         expect(result.fieldsVerified).toBeTruthy();
 
         Logger.success(`Change order ${result.number} created and verified successfully.`);
+
+        // Snapshot assertion: when confirmed, verify Current Contract Value and Revised Contract Amount in Change Order Details
+        if (result.confirmed) {
+            Logger.step('Asserting snapshot: Current Contract Value and Revised Contract Amount in Change Order Details...');
+            await page.waitForLoadState('networkidle');
+            await page.waitForTimeout(2000);
+
+            await invoicePage.openChangeOrderFromList(result.number);
+            const stats = await invoicePage.getChangeOrderDetailsStats();
+
+            expect(stats.currentContractValue).toBeTruthy();
+            expect(stats.revisedContractAmount).toBeTruthy();
+
+            const currentContract = typeof stats.currentContractValue === 'number' ? stats.currentContractValue : invoicePage.parseCurrencyToNumber(String(stats.currentContractValue));
+            const revisedContract = typeof stats.revisedContractAmount === 'number' ? stats.revisedContractAmount : invoicePage.parseCurrencyToNumber(String(stats.revisedContractAmount));
+            const coAmount = typeof stats.changeOrderAmount === 'number' ? stats.changeOrderAmount : invoicePage.parseCurrencyToNumber(String(stats.changeOrderAmount)) ?? changeOrderAmount;
+
+            expect(currentContract).toBeTruthy();
+            expect(revisedContract).toBeTruthy();
+
+            const expectedRevised = currentContract + coAmount;
+            const tolerance = 0.01;
+            expect(Math.abs(revisedContract - expectedRevised)).toBeLessThan(tolerance);
+
+            Logger.success(`Snapshot asserted: Revised Contract Amount ($${revisedContract}) = Current Contract Value ($${currentContract}) + Change Order Amount ($${coAmount})`);
+        } else {
+            Logger.info('Review Changes was not available - CO may be draft. Snapshot assertion applies to approved COs.');
+        }
     });
 
-    test('TC96 @regression @changeOrder : Should add multiple change orders (4-5) with all fields filled', async () => {
+    test('TC96 @regression @changeOrderAndinvoice : Should add multiple change orders (4-5) with all fields filled', async () => {
         Logger.step('Creating multiple change orders with all fields...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -292,7 +320,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success(`Successfully created and verified ${createdChangeOrders.length} change orders.`);
     });
 
-    test('TC97 @regression @changeOrder : Should verify change order number is auto-generated', async () => {
+    test('TC97 @regression @changeOrderAndinvoice : Should verify change order number is auto-generated', async () => {
         Logger.step('Verifying change order number is auto-generated...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -313,7 +341,7 @@ test.describe('Verify Change order tab', () => {
         await invoicePage.goBackToChangeOrderList();
     });
 
-    test('TC98 @regression @changeOrder : Should verify change order date is auto-populated', async () => {
+    test('TC98 @regression @changeOrderAndinvoice : Should verify change order date is auto-populated', async () => {
         Logger.step('Verifying change order date is auto-populated...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -333,7 +361,7 @@ test.describe('Verify Change order tab', () => {
         await invoicePage.goBackToChangeOrderList();
     });
 
-    test('TC99 @regression @changeOrder : Should verify all change order form fields are visible', async () => {
+    test('TC99 @regression @changeOrderAndinvoice : Should verify all change order form fields are visible', async () => {
         Logger.step('Verifying all change order form fields are visible...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -358,7 +386,7 @@ test.describe('Verify Change order tab', () => {
         await invoicePage.goBackToChangeOrderList();
     });
 
-    test('TC100 @regression @changeOrder : Should verify change order list displays correct columns', async () => {
+    test('TC100 @regression @changeOrderAndinvoice : Should verify change order list displays correct columns', async () => {
         Logger.step('Verifying change order list columns...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -385,7 +413,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success('All change order list columns are displayed correctly.');
     });
 
-    test('TC101 @regression @changeOrder : Should add 5th change order with Fire Safety System Update', async () => {
+    test('TC101 @regression @changeOrderAndinvoice : Should add 5th change order with Fire Safety System Update', async () => {
         Logger.step('Creating 5th change order with Fire Safety System Update...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -419,7 +447,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success(`5th change order ${result.number} created and verified successfully.`);
     });
 
-    test('TC102 @regression @changeOrder : Should verify change orders appear with Approved status', async () => {
+    test('TC102 @regression @changeOrderAndinvoice : Should verify change orders appear with Approved status', async () => {
         Logger.step('Verifying change orders have Approved status...');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
@@ -430,7 +458,5 @@ test.describe('Verify Change order tab', () => {
         expect(count).toBeGreaterThan(0);
         Logger.success(`Found ${count} change orders with Approved status.`);
     });
-
-
 
 });

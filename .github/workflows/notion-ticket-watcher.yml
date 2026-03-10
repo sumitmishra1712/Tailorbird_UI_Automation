@@ -97,18 +97,20 @@ jobs:
             fi
 
             SUITE=$(case "$COMPONENT" in
-              "Login") echo "Component_Login" ;;
-              "Menu") echo "Component_Menu" ;;
-              "Organization") echo "Component_Organization" ;;
-              "Property") echo "Component_Property" ;;
-              "Project") echo "Component_Project" ;;
-              "Job") echo "Component_Job" ;;
-              "Category") echo "Component_Category" ;;
-              "Invoice") echo "Component_Invoice" ;;
-              "Change Order") echo "Component_ChangeOrder" ;;
-              "Approval") echo "Component_Approval" ;;
-              "Budget") echo "Component_Budget" ;;
-              *) echo "RegressionRun" ;;
+              "Login") echo "Login" ;;
+              "Sanity") echo "sanity" ;;
+              "Regression") echo "regression" ;;
+              "Property") echo "property" ;;
+              "Project") echo "projectAndJob" ;;
+              "Job") echo "projectAndJob" ;;
+              "Bids") echo "bids" ;;
+              "Contract") echo "contract" ;;
+              "Budget") echo "budget" ;;
+              "Change Order") echo "changeOrderAndinvoice" ;;
+              "Invoice") echo "changeOrderAndinvoice" ;;
+              "Approval") echo "approval" ;;
+              "Menu"|"Organization"|"Category") echo "regression" ;;
+              *) echo "regression" ;;
             esac)
 
             echo "Triggering Playwright for $PAGE_ID (Component: $COMPONENT -> $SUITE)"

@@ -10,7 +10,7 @@ test.describe('Tailorbird Login Flow', () => {
   let page;
   let login;
 
-  test('TC01 @sanity @mandatory @urgent User should be able to submit credentials successfully', async ({ browser }) => {
+  test('TC01 @sanity @mandatory @login User should be able to submit credentials successfully', async ({ browser }) => {
     Logger.info('Starting Tailorbird login test...');
 
     context = await browser.newContext();
@@ -56,7 +56,7 @@ test.describe('Tailorbird Login Flow', () => {
     });
   });
 
-  test('TC @sanity Login with another user successfully', async ({ browser }) => {
+  test('TC @sanity @login Login with another user successfully', async ({ browser }) => {
     Logger.info('Starting Tailorbird login test...');
 
     context = await browser.newContext();

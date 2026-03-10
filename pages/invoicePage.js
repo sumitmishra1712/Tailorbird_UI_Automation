@@ -465,15 +465,7 @@ class InvoicePage {
     async addDataToChangeOrder(dataFields) {
         try {
             Logger.step('Adding data to change order...');
-            if (dataFields.title) {
-                await this.fillChangeOrderTitle(dataFields.title);
-            }
-            if (dataFields.amount) {
-                await this.fillChangeOrderAmount(dataFields.amount);
-            }
-            if (dataFields.description) {
-                await this.fillChangeOrderDescription(dataFields.description);
-            }
+            await this.fillChangeOrderDetails(dataFields);
             Logger.success('Change order data added successfully.');
         } catch (error) {
             Logger.error(`Error adding data: ${error.message}`);
@@ -641,6 +633,131 @@ class InvoicePage {
         } catch (error) {
             Logger.error(`Error filling amount: ${error.message}`);
             return false;
+        }
+    }
+
+    async fillBudgetCategoryInChangeOrder(categoryText) {
+        try {
+            Logger.step(`Filling budget category in change order grid: "${categoryText}"`);
+
+            const detailsDialog = this.page
+                .locator('dialog,[role="dialog"]')
+                .filter({ hasText: 'Change Order Details' })
+                .first();
+            await expect(detailsDialog).toBeVisible({ timeout: 10000 });
+            await this.page.waitForTimeout(500);
+
+            const budgetCategoryHeader = detailsDialog.locator('[role="columnheader"]').filter({ hasText: /Budget Category/i }).first();
+            const headerVisible = await budgetCategoryHeader.isVisible({ timeout: 5000 }).catch(() => false);
+            if (!headerVisible) {
+                Logger.info('Budget Category column not found in change order grid - may not be available');
+                return 0;
+            }
+
+            await budgetCategoryHeader.scrollIntoViewIfNeeded().catch(() => null);
+            await this.page.waitForTimeout(300);
+
+            const colIndex = await budgetCategoryHeader.evaluate((el) => {
+                return el.getAttribute('data-rgcol') || el.getAttribute('aria-colindex') || '';
+            }).catch(() => '');
+            const bcColIndex = colIndex ? String(colIndex) : '5';
+            Logger.info(`Budget Category column index: ${bcColIndex}`);
+
+            const grid = detailsDialog.locator('[role="treegrid"]').first();
+            const dataRows = grid.locator('[role="row"][data-rgrow]');
+            const rowCount = await dataRows.count();
+            expect(rowCount).toBeGreaterThan(0);
+            Logger.info(`Change order grid has ${rowCount} data rows`);
+
+            let categoriesSet = 0;
+
+            for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+                const row = dataRows.nth(rowIdx);
+                const firstCellText = await row.locator('[role="gridcell"]').first().textContent().catch(() => '');
+                if (/^total$/i.test(firstCellText?.trim())) continue;
+
+                const catCell = row.locator(`[role="gridcell"][data-rgcol="${bcColIndex}"], [role="gridcell"][aria-colindex="${bcColIndex}"]`).first();
+                const cellVisible = await catCell.isVisible({ timeout: 2000 }).catch(() => false);
+                if (!cellVisible) continue;
+
+                await catCell.scrollIntoViewIfNeeded().catch(() => null);
+                await this.page.waitForTimeout(200);
+
+                await catCell.dblclick({ timeout: 5000, force: true });
+                await this.page.waitForTimeout(1000);
+
+                const searchInput = detailsDialog.getByPlaceholder('Search or type to create...').or(this.page.getByPlaceholder('Search or type to create...'));
+                const inputVisible = await searchInput.first().isVisible({ timeout: 3000 }).catch(() => false);
+
+                if (!inputVisible) {
+                    Logger.info(`Row ${rowIdx}: Budget category editor did not open, skipping`);
+                    continue;
+                }
+
+                await searchInput.first().fill(categoryText);
+                await this.page.waitForTimeout(1500);
+
+                const allOptions = this.page.getByRole('option');
+                const optionCount = await allOptions.count();
+                Logger.info(`Row ${rowIdx}: Found ${optionCount} dropdown options`);
+
+                let selectedOption = null;
+                for (let i = 0; i < optionCount; i++) {
+                    const optText = await allOptions.nth(i).textContent();
+                    if (optText && !/clear selection/i.test(optText) && new RegExp(categoryText, 'i').test(optText)) {
+                        selectedOption = allOptions.nth(i);
+                        break;
+                    }
+                }
+                if (!selectedOption) {
+                    for (let i = 0; i < optionCount; i++) {
+                        const optText = await allOptions.nth(i).textContent();
+                        if (optText && !/clear selection/i.test(optText)) {
+                            selectedOption = allOptions.nth(i);
+                            break;
+                        }
+                    }
+                }
+
+                expect(selectedOption).toBeTruthy();
+
+                try {
+                    await selectedOption.click({ timeout: 3000 });
+                } catch {
+                    let arrowPresses = 1;
+                    for (let i = 0; i < optionCount; i++) {
+                        const optText = await allOptions.nth(i).textContent();
+                        if (/clear selection/i.test(optText)) {
+                            arrowPresses++;
+                            continue;
+                        }
+                        if (new RegExp(categoryText, 'i').test(optText)) break;
+                        arrowPresses++;
+                    }
+                    for (let k = 0; k < arrowPresses; k++) {
+                        await this.page.keyboard.press('ArrowDown');
+                        await this.page.waitForTimeout(150);
+                    }
+                    await this.page.keyboard.press('Enter');
+                }
+
+                await this.page.waitForTimeout(1500);
+
+                const cellValue = (await catCell.textContent().catch(() => ''))?.trim() || '';
+
+                expect(cellValue).toBeTruthy();
+                expect(cellValue).not.toBe('-');
+                expect(cellValue).not.toBe('—');
+                Logger.success(`Row ${rowIdx}: Budget category set to "${cellValue}"`);
+                categoriesSet++;
+            }
+
+            expect(categoriesSet).toBeGreaterThan(0);
+            Logger.success(`Change order budget category set for ${categoriesSet}/${rowCount} rows`);
+            return categoriesSet;
+        } catch (error) {
+            Logger.error(`Failed to fill budget category in change order: ${error.message}`);
+            throw error;
         }
     }
 
@@ -1116,6 +1233,113 @@ class InvoicePage {
         }
     }
 
+    /**
+     * Opens a change order from the list by clicking its row (by change order number)
+     * @param {string} changeOrderNumber - e.g. "Change Order #123"
+     * @returns {boolean} True if opened successfully
+     */
+    async openChangeOrderFromList(changeOrderNumber) {
+        try {
+            Logger.step(`Opening change order ${changeOrderNumber} from list...`);
+            await this.page.waitForLoadState('networkidle');
+            await this.page.waitForTimeout(1000);
+
+            const search = this.page.getByPlaceholder('Search...').first();
+            if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await search.fill(String(changeOrderNumber));
+                await this.page.waitForTimeout(800);
+            }
+
+            const numberCell = this.page.locator(`[role="gridcell"]:has-text("${changeOrderNumber}")`).first();
+            await numberCell.waitFor({ state: 'visible', timeout: 10000 });
+            await numberCell.click();
+            await this.page.waitForLoadState('networkidle');
+            await this.page.waitForTimeout(1500);
+
+            const detailsOpen = await this.page.locator('text=Change Order Details').or(this.page.locator('text=Overview')).first().isVisible({ timeout: 5000 }).catch(() => false) ||
+                await this.page.getByPlaceholder('Enter change order number').isVisible({ timeout: 5000 }).catch(() => false);
+            if (detailsOpen) {
+                Logger.success(`Change order ${changeOrderNumber} opened.`);
+                return true;
+            }
+            Logger.info('Change order details may have opened in different layout.');
+            return true;
+        } catch (error) {
+            Logger.error(`Error opening change order from list: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Parses a currency string (e.g. "$1,234.56") to a number
+     * @param {string} str - Currency string
+     * @returns {number|null} Parsed number or null
+     */
+    parseCurrencyToNumber(str) {
+        if (!str || typeof str !== 'string') return null;
+        const cleaned = str.replace(/[$,]/g, '').trim();
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? null : num;
+    }
+
+    /**
+     * Gets Current Contract Value and Revised Contract Amount from Change Order Details view.
+     * Used to assert snapshot and formula: Revised Contract Amount = Snapshot Current Contract Value ± Change Order Amount
+     * @returns {Object} { currentContractValue, revisedContractAmount, changeOrderAmount } - values as numbers or null
+     */
+    async getChangeOrderDetailsStats() {
+        try {
+            Logger.step('Fetching Change Order Details stats (Current Contract Value, Revised Contract Amount)...');
+
+            const getValueNearLabel = async (labelPatterns) => {
+                for (const pattern of labelPatterns) {
+                    const label = this.page.locator(`text=${pattern}`).first();
+                    if (await label.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        const parent = label.locator('..');
+                        const valueEl = parent.locator('p').first();
+                        let text = await valueEl.textContent().catch(() => null);
+                        if (text) return text.trim();
+                        const anyWithDollar = parent.locator('p, span, div').filter({ hasText: /\$[\d,]/ }).first();
+                        text = await anyWithDollar.textContent().catch(() => null);
+                        if (text) return text.trim();
+                    }
+                }
+                return null;
+            };
+
+            const currentContractValue = await getValueNearLabel(['Current Contract Value', 'Current Contract']);
+            const revisedContractAmount = await getValueNearLabel(['Revised Contract Amount']);
+
+            let changeOrderAmount = null;
+            try {
+                const grid = this.page.locator('[role="treegrid"]').first();
+                if (await grid.isVisible({ timeout: 2000 }).catch(() => false)) {
+                    const amountHeader = grid.locator('[role="columnheader"]').filter({ hasText: 'Change Order Amount' }).first();
+                    if (await amountHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        const colIndex = await amountHeader.evaluate((el) => el.getAttribute('data-rgcol') || el.getAttribute('aria-colindex') || '').catch(() => '');
+                        const col = colIndex ? String(colIndex) : '6';
+                        const amountCell = grid.locator(`[role="gridcell"][data-rgcol="${col}"], [role="gridcell"][aria-colindex="${col}"]`).first();
+                        const amountText = await amountCell.textContent().catch(() => null);
+                        if (amountText) changeOrderAmount = (amountText || '').trim();
+                    }
+                }
+            } catch {
+                // best-effort
+            }
+
+            const result = {
+                currentContractValue: this.parseCurrencyToNumber(currentContractValue) ?? currentContractValue,
+                revisedContractAmount: this.parseCurrencyToNumber(revisedContractAmount) ?? revisedContractAmount,
+                changeOrderAmount: this.parseCurrencyToNumber(changeOrderAmount) ?? changeOrderAmount
+            };
+            Logger.info(`Change Order Details stats: ${JSON.stringify(result)}`);
+            return result;
+        } catch (error) {
+            Logger.error(`Error fetching Change Order Details stats: ${error.message}`);
+            return { currentContractValue: null, revisedContractAmount: null, changeOrderAmount: null };
+        }
+    }
+
     // =================== INVOICE SPECIFIC METHODS ===================
 
     /**
@@ -1253,6 +1477,167 @@ class InvoicePage {
         } catch (error) {
             Logger.error(`Error filling invoice amount: ${error.message}`);
             return false;
+        }
+    }
+
+    async fillBudgetCategoryInInvoice(categoryText) {
+        try {
+            Logger.step(`Filling budget category in invoice grid: "${categoryText}"`);
+
+            const budgetCategoryHeader = this.invoiceLocators.budgetCategoryHeader;
+            await expect(budgetCategoryHeader).toBeVisible({ timeout: 10000 });
+
+            const headerBox = await budgetCategoryHeader.boundingBox();
+            expect(headerBox).toBeTruthy();
+
+            const dataRows = this.page.locator('[role="treegrid"] [role="row"][data-rgrow]');
+            const rowCount = await dataRows.count();
+            expect(rowCount).toBeGreaterThan(0);
+            Logger.info(`Invoice grid has ${rowCount} data rows`);
+
+            let categoriesSet = 0;
+
+            for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+                const row = dataRows.nth(rowIdx);
+                const rowBox = await row.boundingBox();
+                if (!rowBox) continue;
+
+                const firstCellText = await row.locator('[role="gridcell"]').first().textContent().catch(() => '');
+                if (/^total$/i.test(firstCellText?.trim())) {
+                    Logger.info(`Row ${rowIdx}: Totals row, skipping`);
+                    continue;
+                }
+
+                const catCellX = headerBox.x + headerBox.width / 2;
+                const catCellY = rowBox.y + rowBox.height / 2;
+
+                await this.page.mouse.dblclick(catCellX, catCellY);
+                await this.page.waitForTimeout(1000);
+
+                const searchInput = this.invoiceLocators.budgetCategorySearchInput;
+                const inputVisible = await searchInput.isVisible({ timeout: 3000 }).catch(() => false);
+
+                if (!inputVisible) {
+                    Logger.info(`Row ${rowIdx}: Budget category editor did not open, skipping`);
+                    continue;
+                }
+
+                await searchInput.fill(categoryText);
+                await this.page.waitForTimeout(1500);
+
+                const allOptions = this.page.getByRole('option');
+                const optionCount = await allOptions.count();
+                Logger.info(`Row ${rowIdx}: Found ${optionCount} dropdown options`);
+
+                let selectedOption = null;
+                for (let i = 0; i < optionCount; i++) {
+                    const optText = await allOptions.nth(i).textContent();
+                    if (optText && !/clear selection/i.test(optText) && new RegExp(categoryText, 'i').test(optText)) {
+                        selectedOption = allOptions.nth(i);
+                        Logger.info(`Row ${rowIdx}: Targeting option: "${optText}"`);
+                        break;
+                    }
+                }
+
+                if (!selectedOption) {
+                    for (let i = 0; i < optionCount; i++) {
+                        const optText = await allOptions.nth(i).textContent();
+                        if (optText && !/clear selection/i.test(optText)) {
+                            selectedOption = allOptions.nth(i);
+                            Logger.info(`Row ${rowIdx}: Fallback targeting option: "${optText}"`);
+                            break;
+                        }
+                    }
+                }
+
+                expect(selectedOption).toBeTruthy();
+
+                try {
+                    await selectedOption.click({ timeout: 3000 });
+                } catch {
+                    Logger.info(`Row ${rowIdx}: Direct click intercepted, using keyboard selection`);
+                    let arrowPresses = 1;
+                    for (let i = 0; i < optionCount; i++) {
+                        const optText = await allOptions.nth(i).textContent();
+                        if (/clear selection/i.test(optText)) {
+                            arrowPresses++;
+                            continue;
+                        }
+                        if (new RegExp(categoryText, 'i').test(optText)) break;
+                        arrowPresses++;
+                    }
+                    for (let k = 0; k < arrowPresses; k++) {
+                        await this.page.keyboard.press('ArrowDown');
+                        await this.page.waitForTimeout(150);
+                    }
+                    await this.page.keyboard.press('Enter');
+                }
+
+                await this.page.waitForTimeout(1500);
+
+                const cellValue = await this.page.evaluate(({ x, y }) => {
+                    const el = document.elementFromPoint(x, y);
+                    if (!el) return null;
+                    const cell = el.closest('[role="gridcell"]') || el;
+                    return cell.textContent?.trim() || null;
+                }, { x: catCellX, y: catCellY });
+
+                expect(cellValue).toBeTruthy();
+                expect(cellValue).not.toBe('-');
+                expect(cellValue).not.toBe('—');
+                Logger.success(`Row ${rowIdx}: Budget category set to "${cellValue}"`);
+                categoriesSet++;
+            }
+
+            expect(categoriesSet).toBeGreaterThan(0);
+            Logger.success(`Budget category set for ${categoriesSet}/${rowCount} rows`);
+            return categoriesSet;
+        } catch (error) {
+            Logger.error(`Failed to fill budget category: ${error.message}`);
+            throw error;
+        }
+    }
+
+    async getBudgetCategoryValues() {
+        try {
+            Logger.step('Getting budget category values from invoice grid');
+
+            const budgetCategoryHeader = this.invoiceLocators.budgetCategoryHeader;
+            await expect(budgetCategoryHeader).toBeVisible({ timeout: 10000 });
+
+            const headerBox = await budgetCategoryHeader.boundingBox();
+            expect(headerBox).toBeTruthy();
+
+            const dataRows = this.page.locator('[role="treegrid"] [role="row"][data-rgrow]');
+            const rowCount = await dataRows.count();
+            const values = [];
+
+            for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+                const row = dataRows.nth(rowIdx);
+                const rowBox = await row.boundingBox();
+                if (!rowBox) continue;
+
+                const firstCellText = await row.locator('[role="gridcell"]').first().textContent().catch(() => '');
+                if (/^total$/i.test(firstCellText?.trim())) continue;
+
+                const catCellX = headerBox.x + headerBox.width / 2;
+                const catCellY = rowBox.y + rowBox.height / 2;
+
+                const cellValue = await this.page.evaluate(({ x, y }) => {
+                    const el = document.elementFromPoint(x, y);
+                    if (!el) return null;
+                    const cell = el.closest('[role="gridcell"]') || el;
+                    return cell.textContent?.trim() || null;
+                }, { x: catCellX, y: catCellY });
+
+                if (cellValue) values.push(cellValue);
+            }
+
+            Logger.info(`Budget category values: ${JSON.stringify(values)}`);
+            return values;
+        } catch (error) {
+            Logger.error(`Failed to get budget category values: ${error.message}`);
+            throw error;
         }
     }
 
@@ -1547,7 +1932,6 @@ class InvoicePage {
         try {
             Logger.step('Creating complete invoice...');
 
-            // Click Add Invoice button
             await this.clickAddInvoice();
             await this.page.waitForTimeout(2000);
 
@@ -1555,10 +1939,8 @@ class InvoicePage {
             const jobId = invoiceUrl.match(/\/jobs\/(\d+)/)?.[1] || null;
             const invoiceId = invoiceUrl.match(/\/invoices\/(\d+)/)?.[1] || null;
 
-            // Get the auto-generated invoice number
             const invoiceNumber = await this.getInvoiceNumber();
 
-            // Fill in all the details
             await this.fillInvoiceDetails(invoiceData);
 
             let amountFilled = false;
@@ -1569,7 +1951,13 @@ class InvoicePage {
                 amountCellText = await this.getFirstInvoiceAmountCellText().catch(() => null);
             }
 
-            // Verify the fields were filled correctly
+            let budgetCategoriesSet = 0;
+            let budgetCategoryValues = [];
+            if (invoiceData.budgetCategory) {
+                budgetCategoriesSet = await this.fillBudgetCategoryInInvoice(invoiceData.budgetCategory);
+                budgetCategoryValues = await this.getBudgetCategoryValues();
+            }
+
             const fieldsVerified = await this.verifyInvoiceFieldsInDialog(invoiceData);
 
             let confirmed = false;
@@ -1577,7 +1965,6 @@ class InvoicePage {
                 confirmed = await this.confirmInvoiceAndHandleModal();
             }
 
-            // Go back to save and close
             await this.goBackToInvoiceList();
 
             Logger.success(`Invoice ${invoiceNumber} created successfully.`);
@@ -1591,6 +1978,8 @@ class InvoicePage {
                 amount: invoiceData.amount,
                 amountFilled,
                 amountCellText,
+                budgetCategoriesSet,
+                budgetCategoryValues,
                 confirmed,
                 fieldsVerified
             };
