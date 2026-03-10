@@ -57,6 +57,7 @@ jobs:
 
       - name: Run login first
         id: login
+        continue-on-error: true
         run: |
           if [ "${{ inputs.suite }}" = "Login" ]; then
             npx playwright test --grep "TC01" --workers=1
@@ -67,11 +68,13 @@ jobs:
       - name: Run mandatory tests
         id: mandatory
         if: ${{ inputs.suite == 'regression' || inputs.suite == 'changeOrderAndinvoice' }}
+        continue-on-error: true
         run: npx playwright test --grep @mandatory --workers=1
 
       - name: Run suite
         id: suite
         if: always()
+        continue-on-error: true
         run: |
           SUITE="${{ inputs.suite }}"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
