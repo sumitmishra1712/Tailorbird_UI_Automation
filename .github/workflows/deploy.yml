@@ -1,0 +1,131 @@
+name: Playwright Regression Tests
+
+run-name: Playwright - ${{ github.event.inputs.test_suite || 'regression' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to run tests against"
+        required: true
+        default: "staging"
+      test_suite:
+        description: "Test suite to run"
+        required: true
+        default: "regression"
+      workers:
+        description: "Number of parallel workers"
+        required: false
+        default: "4"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    outputs:
+      report_exists: ${{ steps.report-check.outputs.exists }}
+
+    env:
+      BASE_URL: ${{ vars.BASE_URL }}
+      LOGIN_URL: ${{ vars.LOGIN_URL }}
+      DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+      LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+      VENDOR_EMAIL: ${{ secrets.VENDOR_EMAIL }}
+      VENDOR_PASSWORD: ${{ secrets.VENDOR_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Playwright dependencies
+        working-directory: Playwright/Tailorbird_UI_Automation
+        run: npm ci 2>/dev/null || npm install
+
+      - name: Install Playwright browsers
+        working-directory: Playwright/Tailorbird_UI_Automation
+        run: npm exec playwright install chromium --with-deps
+
+      - name: Load .env
+        run: |
+          if [ -f Playwright/Tailorbird_UI_Automation/.env ]; then
+            cat Playwright/Tailorbird_UI_Automation/.env >> $GITHUB_ENV
+          fi
+
+      - name: Run login to establish session
+        working-directory: Playwright/Tailorbird_UI_Automation
+        continue-on-error: true
+        env:
+          CI: true
+          PLAYWRIGHT_WORKERS: 1
+        run: |
+          echo "Running login setup"
+          npx playwright test --grep "@login" --workers=1 --reporter=line,html || true
+
+      - name: Run mandatory tests
+        if: ${{ github.event.inputs.test_suite == 'mandatory' || github.event.inputs.test_suite == 'regression' }}
+        working-directory: Playwright/Tailorbird_UI_Automation
+        continue-on-error: true
+        run: |
+          echo "Running mandatory tests"
+          npm run Test:mandatory -- --reporter=line,html || true
+
+      - name: Run regression tests
+        if: ${{ github.event.inputs.test_suite == 'regression' }}
+        working-directory: Playwright/Tailorbird_UI_Automation
+        continue-on-error: true
+        run: |
+          echo "Running regression tests"
+          export PLAYWRIGHT_WORKERS=${{ github.event.inputs.workers }}
+          npx playwright test --grep-invert "@mandatory" \
+          --workers=${{ github.event.inputs.workers }} \
+          --fully-parallel \
+          --reporter=line,html || true
+
+      - name: Check if report was generated
+        id: report-check
+        if: always()
+        run: |
+          if [ -f Playwright/Tailorbird_UI_Automation/playwright-report/index.html ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: Playwright/Tailorbird_UI_Automation/playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload report for GitHub Pages
+        if: always() && steps.report-check.outputs.exists == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: Playwright/Tailorbird_UI_Automation/playwright-report/
+
+  deploy:
+    needs: test
+    if: always() && needs.test.outputs.report_exists == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deploy
