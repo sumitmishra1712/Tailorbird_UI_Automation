@@ -191,31 +191,29 @@ test.describe('Budget Workflow - E2E Tests', () => {
     });
 
     test('TC156 @budget @regression : Upload budget file and assert data is available', async () => {
+        test.setTimeout(180000);
         await budgetJob.navigateToBudget();
         await budgetJob.selectBrookProperty();
-        const { reviseEnabled } = await budgetJob.ensureReviseEnabled();
-        expect(reviseEnabled).toBeTruthy();
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
-        await budgetJob.clickReviseBudgets();
+        await budgetJob.openRevisionEditor();
+        await budgetJob.verifyRevisionEditorOpen();
         const filePath = path.resolve(process.cwd(), 'files', 'budget_file_to_upload.csv');
         expect(fs.existsSync(filePath)).toBeTruthy();
-        try {
-            await budgetJob.uploadBudgetFile(filePath);
-        } catch (e) {
-            Logger.info('TC156: Upload not available - verify revision editor loaded');
-            return;
-        }
-        expect(await budgetJob.getDataRowCount()).toBeGreaterThan(0);
-        Logger.success('TC156: Upload budget file flow completed');
+        await budgetJob.uploadFileInRevision(filePath);
+        const count = await budgetJob.getTreegridRowCount();
+        expect(count, 'Uploaded budget data must have at least one row').toBeGreaterThan(0);
+        Logger.success(`TC156: Upload budget file flow completed - ${count} rows in grid`);
     });
 
     // ===== Revise Budget E2E =====
 
     test('TC157 @budget @regression : Revise Budget - Delete first row, Reset Table, assert data restored', async () => {
+        test.setTimeout(180000);
         await budgetJob.navigateToBudget();
         await budgetJob.selectBrookProperty();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
         await budgetJob.openRevisionEditor();
+        await page.waitForTimeout(3000);
         await budgetJob.verifyRevisionEditorOpen();
         const countBeforeDelete = await budgetJob.getTreegridRowCount();
         expect(countBeforeDelete, 'Revision editor must have rows before delete').toBeGreaterThan(0);

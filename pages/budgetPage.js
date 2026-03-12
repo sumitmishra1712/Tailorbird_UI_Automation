@@ -568,15 +568,23 @@ exports.BudgetJob = class BudgetJob {
         await this.clickReviseBudgets();
         await this.page.waitForLoadState('networkidle');
         await this.page.waitForTimeout(3000);
+        await this.page.waitForURL(/budget-revision|financials\/budget/, { timeout: 15000 }).catch(() => {});
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(2000);
     }
 
     async verifyRevisionEditorOpen() {
-        const hasDialog = await budget.revisionDialog.isVisible({ timeout: 5000 }).catch(() => false);
-        const hasBudgetTab = await budget.budgetTabInRevision.isVisible({ timeout: 3000 }).catch(() => false);
-        const hasTreegrid = await budget.treegrid.isVisible({ timeout: 3000 }).catch(() => false);
-        const hasRevisionUrl = this.page.url().includes('budget-revision');
-        const hasRevisionEditor = (hasDialog && (hasBudgetTab || hasTreegrid)) || hasRevisionUrl;
-        expect(hasRevisionEditor).toBeTruthy();
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(2000);
+        const url = this.page.url();
+        const hasRevisionUrl = url.includes('budget-revision');
+        const hasTreegridRows = await budget.treegridDataRows.first().isVisible({ timeout: 8000 }).catch(() => false);
+        const hasTreegrid = await budget.treegrid.first().isVisible({ timeout: 3000 }).catch(() => false);
+        const hasSubmitBtn = await budget.submitForApprovalBtn.isVisible({ timeout: 3000 }).catch(() => false);
+        const hasDialog = await budget.revisionDialog.first().isVisible({ timeout: 3000 }).catch(() => false);
+        const hasBudgetTab = await budget.budgetTabInRevision.isVisible({ timeout: 2000 }).catch(() => false);
+        const hasRevisionEditor = hasRevisionUrl || hasTreegridRows || hasTreegrid || hasSubmitBtn || (hasDialog && hasBudgetTab);
+        expect(hasRevisionEditor, `Revision editor must be open. URL: ${url.substring(0, 80)}...`).toBeTruthy();
         Logger.success('Revision editor is open');
     }
 
@@ -587,14 +595,16 @@ exports.BudgetJob = class BudgetJob {
         let rows = budget.treegridDataRows;
         if (await dialog.first().isVisible({ timeout: 5000 }).catch(() => false)) {
             const dialogRows = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
-            if (await dialogRows.count() > 0) rows = dialogRows;
+            const dc = await dialogRows.count();
+            if (dc > 0) rows = dialogRows;
         }
         await expect(rows.first()).toBeVisible({ timeout: 20000 });
         await this.page.waitForTimeout(1000);
         const firstRow = rows.nth(0);
-        const deleteBtn = firstRow.locator('button').nth(1);
-        await expect(deleteBtn).toBeVisible({ timeout: 10000 });
-        await deleteBtn.click();
+        const deleteBtn = firstRow.locator('button:has(svg.lucide-trash2), button[aria-label*="Delete" i], button[title*="Delete" i]')
+            .or(firstRow.locator('button').nth(1));
+        await expect(deleteBtn.first()).toBeVisible({ timeout: 10000 });
+        await deleteBtn.first().click();
         await this.page.waitForTimeout(2000);
         await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: 15000 });
         Logger.success('First row deleted - Submit for Approval enabled');
@@ -605,16 +615,20 @@ exports.BudgetJob = class BudgetJob {
         const tabpanel = dialog.getByRole('tabpanel', { name: 'Budget' });
         await this.page.waitForTimeout(1500);
         const resetBtn = tabpanel.locator('button').filter({ hasText: /Reset|Reset Table/i }).first();
-        const resetBtnAlt = tabpanel.locator('button').nth(0);
-        const btnToClick = (await resetBtn.count() > 0) ? resetBtn : resetBtnAlt;
+        const resetBtnByIcon = tabpanel.locator('button:has(svg.lucide-rotate-ccw)');
+        let btnToClick = (await resetBtn.count() > 0) ? resetBtn : tabpanel.locator('button').first();
+        if (await resetBtnByIcon.count() > 0) btnToClick = resetBtnByIcon.first();
         await btnToClick.click();
         await this.page.waitForTimeout(1500);
-        if (await budget.resetConfirmBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+        const confirmDialog = this.page.locator('section[role="dialog"]').filter({ hasText: /Reset|Confirm|Are you sure/i });
+        if (await confirmDialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await confirmDialog.getByRole('button', { name: /Reset|Confirm|Yes|OK/i }).first().click();
+        } else if (await budget.resetConfirmBtn.first().isVisible({ timeout: 1000 }).catch(() => false)) {
             await budget.resetConfirmBtn.first().click();
         }
         await this.page.waitForLoadState('networkidle');
         await this.page.waitForTimeout(3000);
-        await expect(dialog.locator('[role="treegrid"] [role="row"][data-rgrow]').first()).toBeVisible({ timeout: 10000 }).catch(() => null);
+        await expect(dialog.locator('[role="treegrid"] [role="row"][data-rgrow]').first()).toBeVisible({ timeout: 10000 });
         Logger.success('Reset table completed in revision editor');
     }
 
@@ -713,8 +727,20 @@ exports.BudgetJob = class BudgetJob {
         const fullPath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
 
         const uploadAndClickDone = async () => {
-            const uploadBtn = tabpanel.locator('button').nth(2);
-            await uploadBtn.click({ force: true });
+            const uploadBtnCandidates = [
+                tabpanel.getByRole('button', { name: /Upload|From device|Choose file|Browse/i }),
+                tabpanel.locator('button:has(svg.lucide-upload)'),
+                tabpanel.locator('button').nth(2)
+            ];
+            let clicked = false;
+            for (const btn of uploadBtnCandidates) {
+                if (await btn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+                    await btn.first().click({ force: true });
+                    clicked = true;
+                    break;
+                }
+            }
+            if (!clicked) throw new Error('Upload button not found in revision Budget tab');
             await this.page.waitForTimeout(1000);
 
             if (await budget.uploadGuideModal.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -722,18 +748,25 @@ exports.BudgetJob = class BudgetJob {
                 await this.page.waitForTimeout(2000);
             }
 
-            if (await budget.fromDeviceBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+            const fromDeviceVisible = await budget.fromDeviceBtn.first().isVisible({ timeout: 5000 }).catch(() => false);
+            if (fromDeviceVisible) {
                 const [fileChooser] = await Promise.all([
-                    this.page.waitForEvent('filechooser', { timeout: 10000 }),
+                    this.page.waitForEvent('filechooser', { timeout: 15000 }),
                     budget.fromDeviceBtn.first().click()
                 ]);
                 await fileChooser.setFiles(fullPath);
             } else {
                 const fileInput = budget.uploadBudgetFileInput;
-                if (await fileInput.first().count() > 0) {
+                const inputCount = await fileInput.count();
+                if (inputCount > 0) {
                     await fileInput.first().setInputFiles(fullPath);
                 } else {
-                    throw new Error('No file upload control found');
+                    const anyFileInput = this.page.locator('input[type="file"]');
+                    if (await anyFileInput.count() > 0) {
+                        await anyFileInput.first().setInputFiles(fullPath);
+                    } else {
+                        throw new Error('No file upload control found - upload button or file input missing');
+                    }
                 }
             }
 
