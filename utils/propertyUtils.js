@@ -2,12 +2,22 @@ import fs from 'fs';
 import path from 'path';
 
 export function getPropertyName() {
-  // Build path to downloads/property.json
-  const filePath = path.join(process.cwd(), 'downloads', 'property.json');
+  const paths = [
+    path.join(process.cwd(), 'downloads', 'property.json'),
+    path.join(process.cwd(), 'data', 'propertyData.json')
+  ];
 
-  // Read from the correct file
-  const rawData = fs.readFileSync(filePath, 'utf-8');
-  const data = JSON.parse(rawData);
+  for (const filePath of paths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const rawData = fs.readFileSync(filePath, 'utf-8');
+        const data = JSON.parse(rawData);
+        if (data?.propertyName) return data.propertyName;
+      }
+    } catch (_) {
+      // Try next path
+    }
+  }
 
-  return data.propertyName;
+  throw new Error('Property name not found. Ensure TC14 (create property) runs first or property.json exists in downloads/ or data/');
 }

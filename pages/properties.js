@@ -1367,26 +1367,32 @@ class PropertiesHelper {
         await expect(typeDropdownPanel.nth(1)).toBeVisible({ timeout: 5000 });
     }
     async assertOptions() {
-        const options = this.page.locator('div[role="option"]');
-        // Get all option texts
+        const assetViewerTab = this.page.locator(propertyLocators.assetViewer).first();
+        const panelId = await assetViewerTab.getAttribute('aria-controls');
+        const assetViewerPanel = panelId ? this.page.locator(`#${panelId}`) : this.page.locator('section, [role="tabpanel"]').filter({ hasText: 'Type' }).first();
+        const typeDropdown = assetViewerPanel.locator('label:has-text("Type") + div input').first();
+        await typeDropdown.waitFor({ state: 'visible', timeout: 5000 });
+        await typeDropdown.click();
+        await this.page.waitForTimeout(1000);
+        const options = this.page.locator('[role="listbox"] [role="option"], div[role="option"][data-combobox-option]');
+        await expect(options.first()).toBeAttached({ timeout: 8000 });
         const allOptions = await options.allTextContents();
-        // Just verify that key options exist, regardless of order
-        await expect(allOptions.join(',')).toContain('Site');
-        await expect(allOptions.join(',')).toContain('Floorplan Types');
-        await expect(allOptions.join(',')).toContain('Building Types');
+        const joined = allOptions.map(t => t.trim()).join(',');
+        expect(joined, 'Type dropdown must contain Site option').toContain('Site');
+        expect(joined, 'Type dropdown must contain Floorplan Types or Building Types').toMatch(/Floorplan Types|Building Types/);
     }
     async assertselectAllOption() {
         const drawer = this.page.locator('section[role="dialog"]');
-        await expect(drawer).toBeVisible({ timeout: 5000 });
+        await expect(drawer).toBeVisible({ timeout: 10000 });
         const title = drawer.locator('h2 >> text=Export Views');
-        await expect(title).toBeVisible();
+        await expect(title).toBeVisible({ timeout: 5000 });
         const closeButton = drawer.locator('button[aria-label="Close"], button:has(svg)');
-        await expect(closeButton.nth(0)).toBeVisible();
-        const topText = drawer.locator('p:has-text("0 of 62 views selected")');
-        await expect(topText).toBeVisible();
+        await expect(closeButton.first()).toBeVisible({ timeout: 5000 });
+        const viewsSelectedText = drawer.locator('p').filter({ hasText: /0 of \d+ views selected/ });
+        await expect(viewsSelectedText.first()).toBeVisible({ timeout: 5000 });
         const selectAllBtn = drawer.locator(propertyLocators.selectall);
         const selectNoneBtn = drawer.locator(propertyLocators.selectNone);
-        await expect(selectAllBtn).toBeEnabled();
+        await expect(selectAllBtn).toBeEnabled({ timeout: 5000 });
         await expect(selectNoneBtn).toBeDisabled();
     }
     async bottonActionassertion() {

@@ -216,10 +216,17 @@ test.describe('Budget Workflow - E2E Tests', () => {
         await budgetJob.navigateToBudget();
         await budgetJob.selectBrookProperty();
         await budgetJob.openRevisionEditor();
+        await budgetJob.verifyRevisionEditorOpen();
+        const countBeforeDelete = await budgetJob.getTreegridRowCount();
+        expect(countBeforeDelete, 'Revision editor must have rows before delete').toBeGreaterThan(0);
         await budgetJob.deleteFirstRowInRevision();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
         await budgetJob.resetTableInRevision();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(3000);
         const count = await budgetJob.getTreegridRowCount();
-        expect(count).toBeGreaterThan(0);
+        expect(count, 'Reset Table must restore rows - data should be restored').toBeGreaterThan(0);
         Logger.success(`TC157: Reset Table - ${count} rows restored`);
     });
 
@@ -264,9 +271,15 @@ test.describe('Budget Workflow - E2E Tests', () => {
         const filePath = path.resolve(process.cwd(), 'files', 'budget_file_to_upload.csv');
         expect(fs.existsSync(filePath)).toBeTruthy();
         await budgetJob.uploadFileInRevision(filePath);
+        await budgetJob.ensureSubmitEnabledAfterUpload();
         await budgetJob.clickSubmitForApproval();
-        expect(await budgetJob.isTextVisible('Construction') || await budgetJob.isTextVisible('Site Prep')).toBeTruthy();
-        expect(await budgetJob.getTreegridRowCount()).toBeGreaterThan(0);
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(3000);
+        const hasConstruction = await budgetJob.isTextVisible('Construction', 10000);
+        const hasSitePrep = await budgetJob.isTextVisible('Site Prep', 10000);
+        expect(hasConstruction || hasSitePrep, 'Uploaded budget data (Construction or Site Prep) must be visible after submit').toBeTruthy();
+        const mainGridCount = await budgetJob.getDataRowCount();
+        expect(mainGridCount, 'Main budget grid must have rows after submit').toBeGreaterThan(0);
         Logger.success('TC159: Upload on other property, submitted, verified');
     });
 

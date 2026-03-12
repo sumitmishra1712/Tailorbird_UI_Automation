@@ -122,6 +122,9 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
   });
 
   test('@regression @property TC18 - Validate Overview Fields and Property Document Actions', async () => {
+    await prop.goToProperties();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
     const propName = getPropertyName();
     const vals = {
       "Property Name": propName,
@@ -136,12 +139,15 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await prop.searchProperty(propName);
 
     await prop.viewPropertyDetails(propName);
+    await page.waitForLoadState('networkidle');
     await prop.validateTabs();
     await prop.validateOverviewFields(vals);
 
     await prop.uploadPropertyDocument(path.resolve("./files/property_data.csv"));
+    await page.waitForLoadState('networkidle');
     await prop.exportButton();
 
+    await page.waitForLoadState('networkidle');
     await prop.manageColumns(testData.manageColumns.expectedColumns);
   });
 
@@ -428,21 +434,29 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
   });
 
   test('@regression @property TC27 - validate No models available in asset viewer tab', async () => {
-    await page.goto("https://beta.tailorbird.com/properties");
+    await prop.goto(data.dashboardUrl);
+    await prop.goToProperties();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
     const propertyName = 'Harbor Bay at MacDill_Liberty Cove (Sample Property 1)';
     console.log('Using property name:', propertyName);
     await prop.changeView('Table View');
     await prop.searchProperty(propertyName);
     await prop.viewDetailsButton();
+    await page.waitForLoadState('networkidle');
     await prop.clickAssetViewer();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
     await prop.assetViewerpanel();
     await prop.exportBtn();
-    // await prop.placeholder_Text();
     await prop.assertOptions();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
     await prop.clickexportBtn();
+    await page.waitForLoadState('networkidle');
     await prop.assertselectAllOption();
     await prop.bottonActionassertion();
-    await prop.iconAssertion()
+    await prop.iconAssertion();
   });
 
   test("@sanity @property TC28 - Validate add Units rows inside Locations and no duplicate row added", async () => {

@@ -618,11 +618,29 @@ exports.BudgetJob = class BudgetJob {
         Logger.success('Reset table completed in revision editor');
     }
 
+    /**
+     * Waits for Submit for Approval button to become enabled (e.g. after async validation).
+     * @param {number} timeoutMs - Max wait in ms
+     * @returns {Promise<boolean>} - true if enabled within timeout
+     */
+    async waitForSubmitForApprovalEnabled(timeoutMs = 15000) {
+        try {
+            await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: timeoutMs });
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     async clickSubmitForApproval() {
         const submitButtons = this.page.getByRole('button', { name: /Submit for Approval/i });
         const initialCount = await submitButtons.count();
         Logger.info(`Submit for Approval buttons visible before click: ${initialCount}`);
 
+        const enabled = await this.waitForSubmitForApprovalEnabled(15000);
+        if (!enabled) {
+            throw new Error('Submit for Approval button did not become enabled within 15s - check that all rows have required fields (e.g. Category Code)');
+        }
         await budget.submitForApprovalBtn.click();
         await this.page.waitForTimeout(2000);
 
@@ -746,6 +764,24 @@ exports.BudgetJob = class BudgetJob {
         const finalCount = await budget.treegridDataRows.count();
         if (finalCount === 0) throw new Error('No rows after upload - data may not have loaded');
         Logger.success(`Upload complete - ${finalCount} rows in grid`);
+    }
+
+    /**
+     * After CSV upload, Submit for Approval may be disabled until Category Code is set.
+     * Assigns category to the first row if submit is disabled.
+     */
+    async ensureSubmitEnabledAfterUpload() {
+        const enabled = await this.waitForSubmitForApprovalEnabled(5000);
+        if (enabled) return;
+        Logger.step('Submit disabled after upload - assigning Category Code to first row to satisfy validation');
+        await this.fillCategoryInRevision('Construction');
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(2000);
+        const nowEnabled = await this.waitForSubmitForApprovalEnabled(10000);
+        if (!nowEnabled) {
+            throw new Error('Submit for Approval remained disabled after assigning category - validation may require additional fields');
+        }
+        Logger.success('Submit for Approval enabled after category assignment');
     }
 
     // ===================== Add Row (Main Grid - TC139) =====================
