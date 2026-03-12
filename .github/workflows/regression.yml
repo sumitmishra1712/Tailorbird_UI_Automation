@@ -1,0 +1,28 @@
+name: Run Regression
+
+on:
+  repository_dispatch:
+    types: [run-regression]
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run regression tests
+        run: |
+          echo "Running regression tests..."
+          # Replace with your actual command
+          ./run_regression.sh
+
+      - name: Notify Slack
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"Regression run completed"}' \
+          $SLACK_WEBHOOK
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
