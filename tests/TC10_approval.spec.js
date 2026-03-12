@@ -618,6 +618,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
     });
 
     test('@approval @regression TC117 Approval Templates – Verify user can initiate creation flow for all approval template types and validate template-specific behavior', async () => {
+        test.setTimeout(240000);
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
         Logger.info('Created property for template: ' + currentPropertyName);

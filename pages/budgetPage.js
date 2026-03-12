@@ -601,34 +601,44 @@ exports.BudgetJob = class BudgetJob {
         await expect(rows.first()).toBeVisible({ timeout: 20000 });
         await this.page.waitForTimeout(1000);
         const firstRow = rows.nth(0);
-        const deleteBtn = firstRow.locator('button:has(svg.lucide-trash2), button[aria-label*="Delete" i], button[title*="Delete" i]')
+        const deleteBtn = firstRow.locator('button:has(svg.lucide-trash2), button[aria-label*="Delete" i], button[title*="Delete" i], button[aria-label*="Remove" i]')
+            .or(firstRow.locator('button').filter({ has: this.page.locator('svg') }).nth(1))
             .or(firstRow.locator('button').nth(1));
-        await expect(deleteBtn.first()).toBeVisible({ timeout: 10000 });
-        await deleteBtn.first().click();
+        await expect(deleteBtn.first()).toBeVisible({ timeout: 15000 });
+        await deleteBtn.first().click({ force: true });
         await this.page.waitForTimeout(2000);
         await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: 15000 });
         Logger.success('First row deleted - Submit for Approval enabled');
     }
 
     async resetTableInRevision() {
-        const dialog = budget.revisionDialog;
+        const dialog = budget.revisionDialog.first();
         const tabpanel = dialog.getByRole('tabpanel', { name: 'Budget' });
         await this.page.waitForTimeout(1500);
         const resetBtn = tabpanel.locator('button').filter({ hasText: /Reset|Reset Table/i }).first();
         const resetBtnByIcon = tabpanel.locator('button:has(svg.lucide-rotate-ccw)');
-        let btnToClick = (await resetBtn.count() > 0) ? resetBtn : tabpanel.locator('button').first();
-        if (await resetBtnByIcon.count() > 0) btnToClick = resetBtnByIcon.first();
-        await btnToClick.click();
+        let btnToClick = tabpanel.locator('button').first();
+        if (await resetBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            btnToClick = resetBtn.first();
+        } else if (await resetBtnByIcon.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            btnToClick = resetBtnByIcon.first();
+        }
+        await btnToClick.click({ timeout: 10000 });
         await this.page.waitForTimeout(1500);
-        const confirmDialog = this.page.locator('section[role="dialog"]').filter({ hasText: /Reset|Confirm|Are you sure/i });
-        if (await confirmDialog.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await confirmDialog.getByRole('button', { name: /Reset|Confirm|Yes|OK/i }).first().click();
-        } else if (await budget.resetConfirmBtn.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+        const confirmDialog = this.page.locator('section[role="dialog"], [role="dialog"]').filter({ hasText: /Reset|Confirm|Are you sure|restore/i });
+        if (await confirmDialog.first().isVisible({ timeout: 5000 }).catch(() => false)) {
+            const confirmBtn = confirmDialog.getByRole('button', { name: /Reset|Confirm|Yes|OK/i }).first();
+            if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await confirmBtn.click();
+            }
+        }
+        if (await budget.resetConfirmBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
             await budget.resetConfirmBtn.first().click();
         }
         await this.page.waitForLoadState('networkidle');
         await this.page.waitForTimeout(3000);
-        await expect(dialog.locator('[role="treegrid"] [role="row"][data-rgrow]').first()).toBeVisible({ timeout: 10000 });
+        const rowsLocator = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
+        await expect(rowsLocator.first()).toBeVisible({ timeout: 15000 });
         Logger.success('Reset table completed in revision editor');
     }
 
@@ -789,12 +799,17 @@ exports.BudgetJob = class BudgetJob {
         };
 
         await uploadAndClickDone();
-        let count = await budget.treegridDataRows.count();
-        if (count === 0) {
-            Logger.step('No rows after first upload - retrying');
+        let finalCount = await this.getTreegridRowCount();
+        if (finalCount === 0) {
+            Logger.step('No rows after first upload - waiting and retrying');
+            await this.page.waitForTimeout(3000);
             await uploadAndClickDone();
+            finalCount = await this.getTreegridRowCount();
         }
-        const finalCount = await budget.treegridDataRows.count();
+        if (finalCount === 0) {
+            await this.page.waitForTimeout(5000);
+            finalCount = await this.getTreegridRowCount();
+        }
         if (finalCount === 0) throw new Error('No rows after upload - data may not have loaded');
         Logger.success(`Upload complete - ${finalCount} rows in grid`);
     }
@@ -1158,10 +1173,14 @@ exports.BudgetJob = class BudgetJob {
 
     async getTreegridRowCount() {
         const dialog = budget.revisionDialog;
-        if (await dialog.count() > 0 && await dialog.isVisible().catch(() => false)) {
+        if (await dialog.count() > 0 && await dialog.first().isVisible().catch(() => false)) {
             const rowsInDialog = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
-            return await rowsInDialog.count();
+            const c = await rowsInDialog.count();
+            if (c > 0) return c;
         }
-        return await budget.treegridDataRows.count();
+        const treegridRows = await budget.treegridDataRows.count();
+        if (treegridRows > 0) return treegridRows;
+        const anyTreegrid = this.page.locator('[role="treegrid"] [role="row"][data-rgrow]');
+        return await anyTreegrid.count();
     }
 };

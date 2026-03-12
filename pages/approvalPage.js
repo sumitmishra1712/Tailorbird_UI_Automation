@@ -767,12 +767,13 @@ exports.ApprovalJob = class ApprovalJob {
     }
 
     async addApprover() {
+        const approverTimeout = 15000;
         try {
             Logger.step('Adding approver from dropdown');
-            // Type "admin_1771393239035@yopmail.com" to search for the approver
-            await approval.selectApproverInput.first().fill('sumit test');
+            const approverInput = approval.selectApproverInput.first();
+            await approverInput.waitFor({ state: 'visible', timeout: approverTimeout });
+            await approverInput.fill('sumit test', { timeout: approverTimeout });
             await this.page.waitForTimeout(800);
-            // Select the first matching option
             await this.page.keyboard.press('ArrowDown');
             await this.page.waitForTimeout(300);
             await this.page.keyboard.press('Enter');
@@ -785,13 +786,14 @@ exports.ApprovalJob = class ApprovalJob {
     }
 
     async fillAmount(amount) {
+        const fieldTimeout = 15000;
         try {
             Logger.step('Filling amount: ' + amount);
-            // Click on the amount input directly
-            await approval.amountInput.first().click();
+            const amountField = approval.amountInput.first();
+            await amountField.waitFor({ state: 'visible', timeout: fieldTimeout });
+            await amountField.click();
             await this.page.waitForTimeout(500);
-            // Clear any existing value and fill with new amount
-            await approval.amountInput.first().fill(amount.toString());
+            await amountField.fill(amount.toString(), { timeout: fieldTimeout });
             await this.page.waitForTimeout(800);
             Logger.success('Amount filled: ' + amount);
         } catch (error) {

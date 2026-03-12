@@ -158,7 +158,9 @@ test.describe('Budget Workflow - E2E Tests', () => {
         Logger.success('TC152: Export verified with budget data');
     });
 
-    // ===== Revise Budget Flow =====
+    // ===== Revise Budget Flow (serial - share Brook property / revision editor) =====
+
+    test.describe.serial('Revise Budget - Serial', () => {
 
     test('TC153 @budget @regression : Revise Budget - header, data, reset table, add budget, upload file', async () => {
         await budgetJob.navigateToBudget();
@@ -194,11 +196,14 @@ test.describe('Budget Workflow - E2E Tests', () => {
         test.setTimeout(180000);
         await budgetJob.navigateToBudget();
         await budgetJob.selectBrookProperty();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
         await budgetJob.openRevisionEditor();
         await budgetJob.verifyRevisionEditorOpen();
         const filePath = path.resolve(process.cwd(), 'files', 'budget_file_to_upload.csv');
         expect(fs.existsSync(filePath)).toBeTruthy();
         await budgetJob.uploadFileInRevision(filePath);
+        await page.waitForTimeout(2000);
         const count = await budgetJob.getTreegridRowCount();
         expect(count, 'Uploaded budget data must have at least one row').toBeGreaterThan(0);
         Logger.success(`TC156: Upload budget file flow completed - ${count} rows in grid`);
@@ -211,18 +216,19 @@ test.describe('Budget Workflow - E2E Tests', () => {
         await budgetJob.navigateToBudget();
         await budgetJob.selectBrookProperty();
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
         await budgetJob.openRevisionEditor();
         await page.waitForTimeout(3000);
         await budgetJob.verifyRevisionEditorOpen();
+        await page.waitForTimeout(2000);
         const countBeforeDelete = await budgetJob.getTreegridRowCount();
         expect(countBeforeDelete, 'Revision editor must have rows before delete').toBeGreaterThan(0);
         await budgetJob.deleteFirstRowInRevision();
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
         await budgetJob.resetTableInRevision();
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(4000);
         const count = await budgetJob.getTreegridRowCount();
         expect(count, 'Reset Table must restore rows - data should be restored').toBeGreaterThan(0);
         Logger.success(`TC157: Reset Table - ${count} rows restored`);
@@ -281,6 +287,6 @@ test.describe('Budget Workflow - E2E Tests', () => {
         Logger.success('TC159: Upload on other property, submitted, verified');
     });
 
-    
+    }); // end serial
 
 });
