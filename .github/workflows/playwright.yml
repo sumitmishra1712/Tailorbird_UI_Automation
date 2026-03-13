@@ -235,12 +235,12 @@ jobs:
           fi
           PASSED=$(grep -oE '[0-9]+ passed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
           FAILED=$(grep -oE '[0-9]+ failed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
-          [ -z "$PASSED" ] && PASSED=0
-          [ -z "$FAILED" ] && FAILED=0
+          [ -z "$PASSED" ] && PASSED=0 || true
+          [ -z "$FAILED" ] && FAILED=0 || true
           TOTAL=$((PASSED + FAILED))
-          [ $TOTAL -eq 0 ] && TOTAL="—"
+          [ $TOTAL -eq 0 ] && TOTAL="—" || true
           SUITE="${{ inputs.suite || 'regression' }}"
-          [ -z "$SUITE" ] && SUITE="regression"
+          [ -z "$SUITE" ] && SUITE="regression" || true
           PAYLOAD=$(jq -n \
             --arg emoji "$EMOJI" \
             --arg status "$STATUS_TEXT" \
@@ -263,9 +263,9 @@ jobs:
               ]
             }')
           if [ -n "$SLACK_WEBHOOK" ]; then
-            curl -s -X POST "$SLACK_WEBHOOK" \
+            curl -s -f -X POST "$SLACK_WEBHOOK" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD"
+              -d "$PAYLOAD" || true
           fi
 
   deploy:
