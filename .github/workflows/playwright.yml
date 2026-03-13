@@ -216,6 +216,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
+          SLACK_WEBHOOK=$(echo "$SLACK_WEBHOOK" | tr -d '\n\r' | xargs)
           REPORT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           STATUS="${{ steps.suite.outcome }}"
           if [ "$STATUS" = "success" ]; then
@@ -263,7 +264,7 @@ jobs:
               ]
             }')
           if [ -n "$SLACK_WEBHOOK" ]; then
-            echo "Posting to Slack..."
+            echo "Posting to Slack... (webhook URL length: ${#SLACK_WEBHOOK} chars)"
             RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SLACK_WEBHOOK" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD" || true)
