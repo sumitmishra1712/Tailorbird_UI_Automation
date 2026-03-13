@@ -55,9 +55,6 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps
 
-      - name: Record run start
-        run: echo "RUN_START=$(date +%s)" >> $GITHUB_ENV
-
       - name: Run login first
         id: login
         continue-on-error: true
@@ -73,6 +70,9 @@ jobs:
         if: ${{ inputs.suite == 'regression' || inputs.suite == 'changeOrderAndinvoice' }}
         continue-on-error: true
         run: npx playwright test --grep @mandatory --workers=1
+
+      - name: Record run start
+        run: echo "RUN_START=$(date +%s)" >> $GITHUB_ENV
 
       - name: Run suite
         id: suite
@@ -212,7 +212,7 @@ jobs:
           fi
 
       - name: Notify Slack
-        if: always()
+        if: always() && (steps.suite.outcome == 'success' || steps.suite.outcome == 'failure')
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
@@ -226,13 +226,19 @@ jobs:
             EMOJI="❌"
             STATUS_TEXT="Failed"
           fi
-          DURATION=$(($(date +%s) - RUN_START))
-          DURATION_MIN=$((DURATION / 60))
-          DURATION_SEC=$((DURATION % 60))
-          if [ $DURATION_MIN -gt 0 ]; then
-            DURATION_STR="${DURATION_MIN}m ${DURATION_SEC}s"
+          RUN_START=${RUN_START:-0}
+          NOW=$(date +%s)
+          DURATION=$((NOW - RUN_START))
+          if [ "$RUN_START" = "0" ] || [ $DURATION -lt 0 ] || [ $DURATION -gt 86400 ]; then
+            DURATION_STR="N/A"
           else
-            DURATION_STR="${DURATION_SEC}s"
+            DURATION_MIN=$((DURATION / 60))
+            DURATION_SEC=$((DURATION % 60))
+            if [ $DURATION_MIN -gt 0 ]; then
+              DURATION_STR="${DURATION_MIN}m ${DURATION_SEC}s"
+            else
+              DURATION_STR="${DURATION_SEC}s"
+            fi
           fi
           PASSED=$(grep -oE '[0-9]+ passed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
           FAILED=$(grep -oE '[0-9]+ failed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
