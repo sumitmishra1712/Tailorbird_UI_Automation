@@ -263,9 +263,17 @@ jobs:
               ]
             }')
           if [ -n "$SLACK_WEBHOOK" ]; then
-            curl -s -f -X POST "$SLACK_WEBHOOK" \
+            echo "Posting to Slack..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SLACK_WEBHOOK" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" || true
+              -d "$PAYLOAD" || true)
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            echo "Slack API response: HTTP $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "Slack error body: $(echo "$RESPONSE" | head -n -1)"
+            fi
+          else
+            echo "SLACK_WEBHOOK not set - skipping notification"
           fi
 
   deploy:
