@@ -55,6 +55,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps
 
+      - name: Record run start
+        run: echo "RUN_START=$(date +%s)" >> $GITHUB_ENV
+
       - name: Run login first
         id: login
         continue-on-error: true
@@ -79,42 +82,43 @@ jobs:
           SUITE="${{ inputs.suite }}"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Push/PR: running regression (mandatory serial + invert parallel)"
-            npx playwright test --grep @mandatory --workers=1 || true
-            npx playwright test --grep-invert @mandatory --workers=4
+            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
+            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "Login" ]; then
-            echo "Login: TC01 only (already run)"
+            echo "Login: TC01 only (already run)" | tee test-output.txt
             exit 0
           elif [ "$SUITE" = "sanity" ]; then
             echo "sanity: @sanity only, serial"
-            npx playwright test --grep @sanity --workers=1
+            npx playwright test --grep @sanity --workers=1 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "regression" ]; then
             echo "regression: mandatory (serial) already run, now invert mandatory (parallel)"
-            npx playwright test --grep-invert @mandatory --workers=4
+            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "property" ]; then
             echo "property: @property parallel"
-            npx playwright test --grep @property --workers=4
+            npx playwright test --grep @property --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "projectAndJob" ]; then
             echo "projectAndJob: @projectAndJob parallel"
-            npx playwright test --grep @projectAndJob --workers=4
+            npx playwright test --grep @projectAndJob --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "bids" ]; then
             echo "bids: @bids serial"
-            npx playwright test --grep @bids --workers=1
+            npx playwright test --grep @bids --workers=1 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "contract" ]; then
             echo "contract: @contract serial"
-            npx playwright test --grep @contract --workers=1
+            npx playwright test --grep @contract --workers=1 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "budget" ]; then
             echo "budget: @budget parallel"
-            npx playwright test --grep @budget --workers=4
+            npx playwright test --grep @budget --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "changeOrderAndinvoice" ]; then
             echo "changeOrderAndinvoice: mandatory (serial) already run, now @changeOrderAndinvoice parallel"
-            npx playwright test --grep @changeOrderAndinvoice --workers=4
+            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
+            npx playwright test --grep @changeOrderAndinvoice --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "approval" ]; then
             echo "approval: @approval parallel"
-            npx playwright test --grep @approval --workers=4
+            npx playwright test --grep @approval --workers=4 2>&1 | tee test-output.txt
           else
             echo "Unknown suite: $SUITE, running full regression"
-            npx playwright test --grep @mandatory --workers=1 || true
-            npx playwright test --grep-invert @mandatory --workers=4
+            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
+            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
           fi
 
       - uses: actions/upload-artifact@v4
@@ -205,6 +209,63 @@ jobs:
             echo "$BLOCK_RESULT" | head -n -1 | jq '.' 2>/dev/null
           else
             echo "Report ZIP attached to Notion ticket successfully"
+          fi
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          REPORT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          STATUS="${{ steps.suite.outcome }}"
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+            STATUS_TEXT="Passed"
+          else
+            EMOJI="❌"
+            STATUS_TEXT="Failed"
+          fi
+          DURATION=$(($(date +%s) - RUN_START))
+          DURATION_MIN=$((DURATION / 60))
+          DURATION_SEC=$((DURATION % 60))
+          if [ $DURATION_MIN -gt 0 ]; then
+            DURATION_STR="${DURATION_MIN}m ${DURATION_SEC}s"
+          else
+            DURATION_STR="${DURATION_SEC}s"
+          fi
+          PASSED=$(grep -oE '[0-9]+ passed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
+          FAILED=$(grep -oE '[0-9]+ failed' test-output.txt 2>/dev/null | grep -oE '[0-9]+' | tail -1 || echo "0")
+          [ -z "$PASSED" ] && PASSED=0
+          [ -z "$FAILED" ] && FAILED=0
+          TOTAL=$((PASSED + FAILED))
+          [ $TOTAL -eq 0 ] && TOTAL="—"
+          SUITE="${{ inputs.suite || 'regression' }}"
+          [ -z "$SUITE" ] && SUITE="regression"
+          PAYLOAD=$(jq -n \
+            --arg emoji "$EMOJI" \
+            --arg status "$STATUS_TEXT" \
+            --arg suite "$SUITE" \
+            --arg total "$TOTAL" \
+            --arg failed "$FAILED" \
+            --arg duration "$DURATION_STR" \
+            --arg url "$REPORT_URL" \
+            '{
+              blocks: [
+                { type: "header", text: { type: "plain_text", text: (emoji + " Playwright Tests - " + status), emoji: true } },
+                { type: "section", fields: [
+                  { type: "mrkdwn", text: ("*Suite:*\n" + suite) },
+                  { type: "mrkdwn", text: ("*Status:*\n" + emoji + " " + status) },
+                  { type: "mrkdwn", text: ("*📊 Total:*\n" + total) },
+                  { type: "mrkdwn", text: ("*❌ Failed:*\n" + failed) },
+                  { type: "mrkdwn", text: ("*🕒 Duration:*\n" + duration) },
+                  { type: "mrkdwn", text: ("*📎 Report:*\n<" + url + "|View Run>") }
+                ]}
+              ]
+            }')
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -s -X POST "$SLACK_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
           fi
 
   deploy:
