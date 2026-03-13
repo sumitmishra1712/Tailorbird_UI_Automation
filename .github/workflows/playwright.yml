@@ -251,14 +251,14 @@ jobs:
             --arg url "$REPORT_URL" \
             '{
               blocks: [
-                { type: "header", text: { type: "plain_text", text: (emoji + " Playwright Tests - " + status), emoji: true } },
+                { type: "header", text: { type: "plain_text", text: ($emoji + " Playwright Tests - " + $status), emoji: true } },
                 { type: "section", fields: [
-                  { type: "mrkdwn", text: ("*Suite:*\n" + suite) },
-                  { type: "mrkdwn", text: ("*Status:*\n" + emoji + " " + status) },
-                  { type: "mrkdwn", text: ("*📊 Total:*\n" + total) },
-                  { type: "mrkdwn", text: ("*❌ Failed:*\n" + failed) },
-                  { type: "mrkdwn", text: ("*🕒 Duration:*\n" + duration) },
-                  { type: "mrkdwn", text: ("*📎 Report:*\n<" + url + "|View Run>") }
+                  { type: "mrkdwn", text: ("*Suite:*\n" + $suite) },
+                  { type: "mrkdwn", text: ("*Status:*\n" + $emoji + " " + $status) },
+                  { type: "mrkdwn", text: ("*📊 Total:*\n" + $total) },
+                  { type: "mrkdwn", text: ("*❌ Failed:*\n" + $failed) },
+                  { type: "mrkdwn", text: ("*🕒 Duration:*\n" + $duration) },
+                  { type: "mrkdwn", text: ("*📎 Report:*\n<" + $url + "|View Run>") }
                 ]}
               ]
             }')
