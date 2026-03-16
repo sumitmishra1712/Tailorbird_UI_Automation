@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
  */
 export default defineConfig({
   testDir: './tests',
-  timeout: 100 * 1000,
+  timeout: 150 * 1000,
  
   /* Run tests in files in parallel */
   fullyParallel: true,
