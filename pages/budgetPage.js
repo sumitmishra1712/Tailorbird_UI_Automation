@@ -678,12 +678,16 @@ exports.BudgetJob = class BudgetJob {
                 if (/submit.*approval|are you sure|confirm/i.test(dlgText)) {
                     const confirmBtn = dlg.getByRole('button', { name: /Submit for Approval/i });
                     if (await confirmBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-                        await confirmBtn.click();
-                        Logger.info('Clicked Submit for Approval in confirmation dialog');
-                        await this.page.waitForLoadState('networkidle');
-                        await this.page.waitForTimeout(3000);
-                        Logger.success('Submit for Approval completed');
-                        return;
+                        const enabled = await confirmBtn.isEnabled().catch(() => false);
+                        if (!enabled) await expect(confirmBtn).toBeEnabled({ timeout: 15000 }).catch(() => null);
+                        if (await confirmBtn.isEnabled().catch(() => false)) {
+                            await confirmBtn.click();
+                            Logger.info('Clicked Submit for Approval in confirmation dialog');
+                            await this.page.waitForLoadState('networkidle');
+                            await this.page.waitForTimeout(3000);
+                            Logger.success('Submit for Approval completed');
+                            return;
+                        }
                     }
                     const anyConfirmBtn = dlg.getByRole('button', { name: /Submit|Confirm|Yes|Approve/i }).last();
                     if (await anyConfirmBtn.isVisible({ timeout: 1000 }).catch(() => false)) {

@@ -71,7 +71,8 @@ function budgetLocators(page) {
         // --- Revise Budget editor ---
         revisionDialog: page.getByRole('dialog'),
         budgetTabInRevision: page.getByRole('tab', { name: 'Budget' }),
-        submitForApprovalBtn: page.getByRole('button', { name: 'Submit for Approval' }),
+        submitForApprovalBtn: page.getByRole('dialog').getByRole('button', { name: /Submit for Approval|Submit for Review/i }).first()
+            .or(page.getByRole('button', { name: /Submit for Approval|Submit for Review/i }).first()),
 
         // --- Revise Budget toolbar ---
         resetTableOption: page.getByRole('button', { name: /Reset|Reset Table/i }),

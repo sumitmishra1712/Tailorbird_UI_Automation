@@ -16,8 +16,11 @@ exports.ProjectPage = class ProjectPage {
         this.descInput = page.getByLabel('Description');
         this.startDateInput = page.getByLabel('Start Date');
         this.endDateInput = page.getByLabel('End Date');
-        this.budgetInput = page.getByRole('textbox', { name: 'Estimated Budget' });
-        this.budgetCategoryInput = page.getByRole('textbox', { name: 'Budget Category' });
+        this.budgetInput = page.getByRole('textbox', { name: 'Estimated Budget' })
+            .or(page.getByPlaceholder('Enter estimated budget'));
+        this.budgetCategoryInput = page.getByRole('textbox', { name: 'Budget Category' })
+            .or(page.getByRole('combobox', { name: /Budget Category/i }))
+            .or(page.getByPlaceholder('Select budget item'));
         this.cancelBtn = page.getByRole('button', { name: 'Cancel' });
         // this.addProjectBtn = page.getByRole('button', { name: /add project/i });
         this.addProjectBtn = page.getByRole('button', { name: 'Create Project' }).last().filter({ has: page.locator(':visible') });
@@ -446,13 +449,17 @@ exports.ProjectPage = class ProjectPage {
             await this.page.waitForTimeout(800);
 
             let propertyData;
-
-            if (!propertyData) {
-                const filePath = path.join(__dirname, '../data/propertyData.json');
-                propertyData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const propertyDataPath = path.join(__dirname, '../data/propertyData.json');
+            const downloadsPropertyPath = path.join(process.cwd(), 'downloads', 'property.json');
+            if (fs.existsSync(propertyDataPath)) {
+                propertyData = JSON.parse(fs.readFileSync(propertyDataPath, 'utf8'));
+            } else if (fs.existsSync(downloadsPropertyPath)) {
+                propertyData = JSON.parse(fs.readFileSync(downloadsPropertyPath, 'utf8'));
+            }
+            if (!propertyData || !propertyData.propertyName) {
+                throw new Error('Property name not found. Add data/propertyData.json or run a test that creates downloads/property.json');
             }
 
-            // Create a new property for this test
             const currentPropertyName = propertyData.propertyName;
             Logger.info('Created property for template: ' + currentPropertyName);
 

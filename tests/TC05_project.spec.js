@@ -37,9 +37,18 @@ test('TC30 @regression @projectAndJob : User should be able to Open Create Proje
 });
 
 test('TC31 @regression @sanity @mandatory @projectAndJob @contract : User should be able to Fill Create Project form, submit, and verify project details on dashboard', async ({ page }) => {
+    let propertyName;
     const propertyDataPath = path.join(__dirname, '../data/propertyData.json');
-    const propertyData = JSON.parse(fs.readFileSync(propertyDataPath, 'utf8'));
-    const propertyName = propertyData.propertyName;
+    const downloadsPropertyPath = path.join(process.cwd(), 'downloads', 'property.json');
+    if (fs.existsSync(propertyDataPath)) {
+        const propertyData = JSON.parse(fs.readFileSync(propertyDataPath, 'utf8'));
+        propertyName = propertyData.propertyName;
+    } else if (fs.existsSync(downloadsPropertyPath)) {
+        const propertyData = JSON.parse(fs.readFileSync(downloadsPropertyPath, 'utf8'));
+        propertyName = propertyData.propertyName;
+    } else {
+        throw new Error('Property name not found. Ensure TC14 (create property) runs first or add data/propertyData.json or downloads/property.json');
+    }
 
     const budgetJob = new BudgetJob(page);
     const budgetAvailable = await budgetJob.ensureBudgetCategoryForProperty(propertyName);
