@@ -8,7 +8,9 @@ function budgetLocators(page) {
         categoryNavText: page.locator('nav').locator('text=Category').first(),
 
         // --- Property selection ---
-        propertyDropdownButton: page.getByRole('button', { name: 'Select a Property' }),
+        propertyDropdownButton: page
+            .getByRole('button', { name: /Select a Property|Sample Property|Harbor Bay|name_/i })
+            .first(),
         brookProperty: page.getByRole('menuitem', { name: /The Brook \(Sample Property 2\)/ }),
         propertyHeader: page.getByRole('button', { name: /The Brook \(Sample Property 2\)/ }),
         propertyMenuItems: page.getByRole('menuitem'),
@@ -38,6 +40,13 @@ function budgetLocators(page) {
         overviewPanel: page.getByRole('tabpanel', { name: 'Overview' }),
         searchBox: page.getByRole('textbox', { name: 'Search...' }),
         reviseBudgetsBtn: page.getByRole('button', { name: 'Revise Budgets' }),
+        createBudgetRevisionBtn: page
+            .getByRole('button', { name: /Create budget revision|Create a budget revision/i })
+            .or(
+                page
+                    .locator('button')
+                    .filter({ hasText: /Create budget revision|Create a budget revision/i })
+            ),
 
         // --- Add row ---
         addRowMenu: page.getByTestId('bt-add-row-menu'),
