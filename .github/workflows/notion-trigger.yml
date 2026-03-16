@@ -1,12 +1,1 @@
-name: Notion Trigger
 
-on:
-  repository_dispatch:
-    types: [notion-ticket-done]
-
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Triggered
-        run: echo "Triggered from Notion"
