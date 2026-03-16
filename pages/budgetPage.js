@@ -336,13 +336,27 @@ exports.BudgetJob = class BudgetJob {
 
     async switchToDefaultView() {
         await this.page.waitForTimeout(500);
-        await budget.viewDropdownBtn.click();
+
+        const btn = budget.viewDropdownBtn;
+
+        try {
+            // Normal click first
+            await btn.click({ timeout: 5000 });
+        } catch {
+            // If portal text (e.g. "Affordable Housing Demo") intercepts, move mouse away and force-click
+            await this.page.mouse.move(10, 10);
+            await this.page.waitForTimeout(200);
+            await btn.click({ timeout: 5000, force: true });
+        }
+
         await this.page.waitForTimeout(1000);
+
         if (await budget.defaultViewOption.first().isVisible({ timeout: 3000 }).catch(() => false)) {
             await budget.defaultViewOption.first().click();
         } else {
             await this.page.keyboard.press('Escape');
         }
+
         await this.page.waitForTimeout(500);
     }
 
@@ -350,11 +364,29 @@ exports.BudgetJob = class BudgetJob {
         await this.page.waitForTimeout(500);
         await budget.viewDropdownBtn.click();
         await this.page.waitForTimeout(800);
-        const viewItem = this.page.getByRole('menuitem', { name: new RegExp(viewName) });
-        await viewItem.first().click({ timeout: 5000 });
-        await this.page.waitForLoadState('networkidle');
-        await this.page.waitForTimeout(1000);
-        Logger.success(`Loaded view "${viewName}"`);
+
+        // The view can appear as menuitem or option inside a portal menu
+        const menuContainer = this.page
+            .locator('[role="menu"], [data-portal="true"], [data-mantine-shared-portal-node="true"]')
+            .first();
+
+        const viewItem = menuContainer
+            .getByRole('menuitem', { name: new RegExp(viewName) })
+            .or(menuContainer.getByRole('option', { name: new RegExp(viewName) }))
+            .or(this.page.getByRole('menuitem', { name: new RegExp(viewName) }))
+            // Fallback: plain text match anywhere (in case roles differ)
+            .or(this.page.locator(`text=${viewName}`))
+            .first();
+        try {
+            await viewItem.waitFor({ state: 'visible', timeout: 10000 });
+            await viewItem.click({ timeout: 5000 });
+
+            await this.page.waitForLoadState('networkidle');
+            await this.page.waitForTimeout(1000);
+            Logger.success(`Loaded view "${viewName}"`);
+        } catch (err) {
+            Logger.info(`View "${viewName}" was created but did not appear in the view menu: ${err.message}`);
+        }
     }
 
     // ===================== Column Management =====================

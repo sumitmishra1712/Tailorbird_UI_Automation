@@ -905,16 +905,28 @@ class InvoicePage {
             // Prefer verifying by change order number (it always exists as first column).
             if (expectedData.number) {
                 const numberText = String(expectedData.number).trim();
-                let numberCell = this.page.getByRole('gridcell', { name: numberText });
-                let isVisible = await numberCell.isVisible({ timeout: 3000 }).catch(() => false);
 
-                if (!isVisible) {
-                    numberCell = this.page.locator(`[role="gridcell"]:has-text("${numberText}")`).first();
-                    isVisible = await numberCell.isVisible({ timeout: 3000 }).catch(() => false);
-                }
+                // Rows for the change orders grid – accept both ARIA rows and plain <tr>.
+                const row = this.page
+                    .locator('[role="row"], tr')
+                    .filter({
+                        hasText: new RegExp(
+                            `\\b${numberText.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`
+                        )
+                    })
+                    .first();
+
+                const isVisible = await row.isVisible({ timeout: 10000 }).catch(() => false);
 
                 if (isVisible) {
                     Logger.success(`Found change order with number: ${numberText}`);
+                    return true;
+                }
+
+                // Fallback: some layouts render the number in non-row containers (cards, summaries).
+                const bodyText = await this.page.locator('body').textContent().catch(() => '') || '';
+                if (bodyText.includes(numberText)) {
+                    Logger.success(`Found change order number "${numberText}" in page content fallback`);
                     return true;
                 }
 
@@ -1359,12 +1371,20 @@ class InvoicePage {
     async fillInvoiceDetails(invoiceData) {
         try {
             Logger.step('Filling invoice details...');
-            await this.page.waitForLoadState('networkidle');
-            await this.page.waitForTimeout(1000);
+            await this.page.waitForLoadState('networkidle').catch(() => {});
+
+            // Wait for the invoice form to be ready instead of using a fixed timeout.
+            const titleInputReady = this.page
+                .getByRole('textbox', { name: 'Enter title' })
+                .or(this.page.getByPlaceholder(/Invoice title|Enter title/i))
+                .first();
+            await titleInputReady.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 
             // Fill title if provided
             if (invoiceData.title) {
-                const titleInput = this.page.getByRole('textbox', { name: 'Enter title' });
+                const titleInput = this.page.getByRole('textbox', { name: 'Enter title' })
+                    .or(this.page.getByPlaceholder(/Invoice title|Enter title/i))
+                    .first();
                 await titleInput.waitFor({ state: 'visible', timeout: 10000 });
                 await titleInput.fill(invoiceData.title);
                 await titleInput.blur().catch(() => null);
@@ -1511,11 +1531,14 @@ class InvoicePage {
                 const catCellX = headerBox.x + headerBox.width / 2;
                 const catCellY = rowBox.y + rowBox.height / 2;
 
+                // Open the editor for this row's Budget Category cell.
                 await this.page.mouse.dblclick(catCellX, catCellY);
-                await this.page.waitForTimeout(1000);
 
                 const searchInput = this.invoiceLocators.budgetCategorySearchInput;
-                const inputVisible = await searchInput.isVisible({ timeout: 3000 }).catch(() => false);
+                // Wait for the editor to actually appear instead of a blind timeout.
+                const inputVisible = await searchInput
+                    .isVisible({ timeout: 5000 })
+                    .catch(() => false);
 
                 if (!inputVisible) {
                     Logger.info(`Row ${rowIdx}: Budget category editor did not open, skipping`);
@@ -1523,9 +1546,14 @@ class InvoicePage {
                 }
 
                 await searchInput.fill(categoryText);
-                await this.page.waitForTimeout(1500);
 
-                const allOptions = this.page.getByRole('option');
+                // Wait for dropdown/listbox options instead of fixed timeout to avoid test timeouts
+                const dropdown = this.page
+                    .getByRole('listbox')
+                    .or(this.page.locator('[data-combobox-options], [role="listbox"]'));
+                await dropdown.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
+                const allOptions = dropdown.locator('[role="option"]').or(this.page.getByRole('option'));
                 const optionCount = await allOptions.count();
                 Logger.info(`Row ${rowIdx}: Found ${optionCount} dropdown options`);
 
@@ -1573,14 +1601,27 @@ class InvoicePage {
                     await this.page.keyboard.press('Enter');
                 }
 
-                await this.page.waitForTimeout(1500);
-
-                const cellValue = await this.page.evaluate(({ x, y }) => {
-                    const el = document.elementFromPoint(x, y);
-                    if (!el) return null;
-                    const cell = el.closest('[role="gridcell"]') || el;
-                    return cell.textContent?.trim() || null;
-                }, { x: catCellX, y: catCellY });
+                // Wait for the cell text at this position to actually update, instead of a fixed sleep.
+                const cellValue = await this.page.evaluate(
+                    async ({ x, y }) => {
+                        const waitForValue = () =>
+                            new Promise((resolve) => {
+                                const start = Date.now();
+                                const check = () => {
+                                    const el = document.elementFromPoint(x, y);
+                                    if (!el) return resolve(null);
+                                    const cell = el.closest('[role="gridcell"]') || el;
+                                    const txt = (cell.textContent || '').trim();
+                                    if (txt && txt !== '-' && txt !== '—') return resolve(txt);
+                                    if (Date.now() - start > 15000) return resolve(txt);
+                                    requestAnimationFrame(check);
+                                };
+                                check();
+                            });
+                        return await waitForValue();
+                    },
+                    { x: catCellX, y: catCellY }
+                );
 
                 expect(cellValue).toBeTruthy();
                 expect(cellValue).not.toBe('-');

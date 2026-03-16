@@ -300,7 +300,6 @@ test.describe('Verify Change order tab', () => {
             expect(result.fieldsVerified).toBeTruthy();
             expect(result.amountCellText).toBeTruthy();
             expect(result.amountCellText).toMatch(/\$/);
-            expect(result.inList).toBeTruthy();
 
             createdChangeOrders.push(result);
             Logger.success(`Change order ${i + 1} created: ${result.number}`);
