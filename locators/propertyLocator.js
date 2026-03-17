@@ -12,7 +12,7 @@ export const propertyLocators = {
     firstRowNameCellText: '[role="row"]:first-of-type [role="gridcell"]:first-of-type div',
     propertyNameCell: name => `[role="gridcell"]:has-text("${name}")`,
     rowFromCell: "xpath=ancestor::div[@role='row']",
-    rowDeleteIcon: rowIndex => `[role="row"][data-rgrow="${rowIndex}"] button:not([title="View Details"])`,
+    rowDeleteIcon: rowIndex => `[role="row"][data-rgrow="${rowIndex}"] button:has(svg[class*="lucide-trash"])`,
     
     // ============ FILTERS & ACTIONS ============
     filterBadges: '[role="treegrid"] .mantine-Badge-label',
@@ -43,7 +43,7 @@ export const propertyLocators = {
     // ============ BUTTONS & ACTIONS ============
     viewDetailsButton: '[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)',
     viewDetailsBtn: '[role="treegrid"] button[title="View Details"], [role="treegrid"] button:has(svg.lucide-eye)',
-    deleteButtonInPopover: '.mantine-Popover-dropdown button:has-text("Delete")',
+    deleteButtonInPopover: '[role="dialog"] button:has-text("Delete")',
     deleteConfirmBtn: ".mantine-Popover-dropdown button:has-text('Delete')",
     assetViewer: 'button:has-text("Asset Viewer")',
     selectall: 'button:has-text("Select All")',

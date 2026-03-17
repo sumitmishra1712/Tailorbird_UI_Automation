@@ -248,8 +248,8 @@ class PropertiesHelper {
         await this.page.waitForLoadState("networkidle");
         await this.page.waitForTimeout(3000);
 
-        await this.page.locator(propertyLocators.rowDeleteIcon(rowIndex)).waitFor({ state: "visible" });
-        await this.page.locator(propertyLocators.rowDeleteIcon(rowIndex)).click();
+        await this.page.locator(propertyLocators.rowDeleteIcon(rowIndex)).last().waitFor({ state: "visible" });
+        await this.page.locator(propertyLocators.rowDeleteIcon(rowIndex)).last().click();
 
         await this.page.locator(propertyLocators.deleteButtonInPopover).waitFor({ state: "visible" });
         await this.page.locator(propertyLocators.deleteButtonInPopover).click();
