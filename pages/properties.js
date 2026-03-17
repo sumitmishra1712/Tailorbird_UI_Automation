@@ -643,8 +643,28 @@ class PropertiesHelper {
             const deleteBtn = randomNameRow.locator('xpath=ancestor::div[contains(@style,"cursor")]').locator('button:has(svg.lucide-trash-2)');
             await deleteBtn.click();
             // DELETE COLUMN
-            await this.page.locator(propertyLocators.deleteColumnIcon).click();
-            await this.page.locator(propertyLocators.deleteConfirmBtn).click();
+            // await this.page.locator(propertyLocators.deleteColumnIcon).click();
+            // await this.page.locator(propertyLocators.deleteConfirmBtn).click();
+
+            // Click delete icon (opens popover)
+            const deleteIcon = this.page.locator(propertyLocators.deleteColumnIcon);
+            await expect(deleteIcon).toBeVisible();
+            await deleteIcon.click();
+
+            // Wait for popover to be attached & visible
+            const popover = this.page.locator('.mantine-Popover-dropdown').last();
+            await expect(popover).toBeVisible();
+
+            // Use scoped locator (VERY IMPORTANT)
+            const confirmBtn = popover.getByRole('button', { name: 'Delete' });
+
+            // Retry-safe click
+            await expect(confirmBtn).toBeVisible();
+            await expect(confirmBtn).toBeEnabled();
+            await confirmBtn.click({ trial: true }); // pre-check
+            await confirmBtn.click();
+
+            console.log("✔ Custom column deleted");
             console.log("✔ Custom column deleted");
         }
     }
