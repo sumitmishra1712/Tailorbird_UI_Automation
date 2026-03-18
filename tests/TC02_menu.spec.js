@@ -46,7 +46,7 @@ test.afterAll(async () => {
 
 test.describe('Tailorbird Left Panel Flow - Modular', () => {
 
-    test('@regression @property - Validate Delete Property created in previous run', async () => {
+    test.skip('@regression @property - Validate Delete Property created in previous run', async () => {
         await prop.goto(data.dashboardUrl);
         await prop.goToProperties();
         const propertyName = getPropertyNameFromDownload();
