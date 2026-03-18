@@ -28,8 +28,6 @@ on:
           - budget
           - changeOrderAndinvoice
           - approval
-      notion_ticket_id:
-        required: false
 
 jobs:
   test:
@@ -132,84 +130,6 @@ jobs:
         if: always()
         with:
           path: playwright-report/
-
-      - name: Zip report for Notion
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
-        run: |
-          zip -r playwright-report.zip playwright-report/
-          echo "Report zipped: $(ls -la playwright-report.zip)"
-
-      - name: Create release and upload report zip
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: report-run-${{ github.run_id }}
-          name: Playwright Report (Run #${{ github.run_number }})
-          draft: false
-          generate_release_notes: false
-          target_commitish: ${{ github.sha }}
-          files: playwright-report.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Notion with report zip attachment
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.notion_ticket_id != '' }}
-        env:
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          ZIP_URL: https://github.com/${{ github.repository }}/releases/download/report-run-${{ github.run_id }}/playwright-report.zip
-          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/report-run-${{ github.run_id }}
-        run: |
-          echo "=== Fetching page properties ==="
-          PAGE_DATA=$(curl -s "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
-            -H "Authorization: Bearer $NOTION_TOKEN" \
-            -H "Notion-Version: 2022-06-28")
-          echo "Available properties:"
-          echo "$PAGE_DATA" | jq '[.properties | keys[]]' 2>/dev/null
-
-          echo ""
-          echo "=== Updating Notion ticket: Test Report (Actions run URL), CI Trigger ==="
-          PATCH_JSON=$(jq -n \
-            --arg run_url "$RUN_URL" \
-            '{
-              properties: {
-                "Test Report": { url: $run_url },
-                "CI Trigger": { select: { name: "Reported" } }
-              }
-            }')
-          RESULT=$(curl -s -w "\n%{http_code}" -X PATCH "https://api.notion.com/v1/pages/${{ inputs.notion_ticket_id }}" \
-            -H "Authorization: Bearer $NOTION_TOKEN" \
-            -H "Notion-Version: 2022-06-28" \
-            -H "Content-Type: application/json" \
-            -d "$PATCH_JSON")
-          HTTP_CODE=$(echo "$RESULT" | tail -n 1)
-          echo "Notion PATCH properties HTTP status: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Notion PATCH response:"
-            echo "$RESULT" | head -n -1 | jq '.' 2>/dev/null
-          fi
-
-          echo ""
-          echo "=== Appending report zip block to page content ==="
-          BLOCK_JSON=$(jq -n \
-            --arg zip_url "$ZIP_URL" \
-            --arg run "Run #${{ github.run_number }}" \
-            '{children: [{object: "block", type: "file", file: {type: "external", external: {url: $zip_url}, caption: [{type: "text", text: {content: ("Playwright Report (" + $run + ") - Download ZIP")}}]}}]}')
-          BLOCK_RESULT=$(curl -s -w "\n%{http_code}" -X PATCH "https://api.notion.com/v1/blocks/${{ inputs.notion_ticket_id }}/children" \
-            -H "Authorization: Bearer $NOTION_TOKEN" \
-            -H "Notion-Version: 2022-06-28" \
-            -H "Content-Type: application/json" \
-            -d "$BLOCK_JSON")
-          BLOCK_HTTP=$(echo "$BLOCK_RESULT" | tail -n 1)
-          echo "Notion append file block HTTP status: $BLOCK_HTTP"
-          if [ "$BLOCK_HTTP" != "200" ]; then
-            echo "Notion block append response:"
-            echo "$BLOCK_RESULT" | head -n -1 | jq '.' 2>/dev/null
-          else
-            echo "Report ZIP attached to Notion ticket successfully"
-          fi
 
       - name: Notify Slack
         if: always() && (steps.suite.outcome == 'success' || steps.suite.outcome == 'failure')
