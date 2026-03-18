@@ -67,7 +67,12 @@ jobs:
         id: mandatory
         if: ${{ inputs.suite == 'regression' || inputs.suite == 'changeOrderAndinvoice' }}
         continue-on-error: true
-        run: npx playwright test --grep @mandatory --workers=1
+        run: |
+          rm -rf blob-report blob-report-mandatory || true
+          npx playwright test --grep @mandatory --workers=1 --reporter=blob
+          if [ -d blob-report ]; then
+            mv blob-report blob-report-mandatory
+          fi
 
       - name: Record run start
         run: echo "RUN_START=$(date +%s)" >> $GITHUB_ENV
@@ -80,8 +85,15 @@ jobs:
           SUITE="${{ inputs.suite }}"
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Push/PR: running regression (mandatory serial + invert parallel)"
-            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
-            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
+            rm -rf blob-report blob-report-mandatory blob-report-invert blob-report-merged playwright-report test-output.txt || true
+            npx playwright test --grep @mandatory --workers=1 --reporter=blob 2>&1 | tee -a test-output.txt || true
+            [ -d blob-report ] && mv blob-report blob-report-mandatory || true
+            npx playwright test --grep-invert @mandatory --workers=4 --reporter=blob 2>&1 | tee test-output.txt
+            [ -d blob-report ] && mv blob-report blob-report-invert || true
+            mkdir -p blob-report-merged
+            cp -f blob-report-mandatory/*.zip blob-report-merged/ 2>/dev/null || true
+            cp -f blob-report-invert/*.zip blob-report-merged/ 2>/dev/null || true
+            npx playwright merge-reports --reporter=html blob-report-merged
           elif [ "$SUITE" = "Login" ]; then
             echo "Login: TC01 only (already run)" | tee test-output.txt
             exit 0
@@ -90,7 +102,13 @@ jobs:
             npx playwright test --grep @sanity --workers=1 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "regression" ]; then
             echo "regression: mandatory (serial) already run, now invert mandatory (parallel)"
-            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
+            rm -rf blob-report blob-report-invert blob-report-merged playwright-report test-output.txt || true
+            npx playwright test --grep-invert @mandatory --workers=4 --reporter=blob 2>&1 | tee test-output.txt
+            [ -d blob-report ] && mv blob-report blob-report-invert || true
+            mkdir -p blob-report-merged
+            cp -f blob-report-mandatory/*.zip blob-report-merged/ 2>/dev/null || true
+            cp -f blob-report-invert/*.zip blob-report-merged/ 2>/dev/null || true
+            npx playwright merge-reports --reporter=html blob-report-merged
           elif [ "$SUITE" = "property" ]; then
             echo "property: @property parallel"
             npx playwright test --grep @property --workers=4 2>&1 | tee test-output.txt
@@ -108,15 +126,27 @@ jobs:
             npx playwright test --grep @budget --workers=4 2>&1 | tee test-output.txt
           elif [ "$SUITE" = "changeOrderAndinvoice" ]; then
             echo "changeOrderAndinvoice: mandatory (serial) already run, now @changeOrderAndinvoice parallel"
-            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
-            npx playwright test --grep @changeOrderAndinvoice --workers=4 2>&1 | tee test-output.txt
+            rm -rf blob-report blob-report-suite blob-report-merged playwright-report test-output.txt || true
+            npx playwright test --grep @changeOrderAndinvoice --workers=4 --reporter=blob 2>&1 | tee test-output.txt
+            [ -d blob-report ] && mv blob-report blob-report-suite || true
+            mkdir -p blob-report-merged
+            cp -f blob-report-mandatory/*.zip blob-report-merged/ 2>/dev/null || true
+            cp -f blob-report-suite/*.zip blob-report-merged/ 2>/dev/null || true
+            npx playwright merge-reports --reporter=html blob-report-merged
           elif [ "$SUITE" = "approval" ]; then
             echo "approval: @approval parallel"
             npx playwright test --grep @approval --workers=4 2>&1 | tee test-output.txt
           else
             echo "Unknown suite: $SUITE, running full regression"
-            npx playwright test --grep @mandatory --workers=1 2>&1 | tee -a test-output.txt || true
-            npx playwright test --grep-invert @mandatory --workers=4 2>&1 | tee test-output.txt
+            rm -rf blob-report blob-report-mandatory blob-report-invert blob-report-merged playwright-report test-output.txt || true
+            npx playwright test --grep @mandatory --workers=1 --reporter=blob 2>&1 | tee -a test-output.txt || true
+            [ -d blob-report ] && mv blob-report blob-report-mandatory || true
+            npx playwright test --grep-invert @mandatory --workers=4 --reporter=blob 2>&1 | tee test-output.txt
+            [ -d blob-report ] && mv blob-report blob-report-invert || true
+            mkdir -p blob-report-merged
+            cp -f blob-report-mandatory/*.zip blob-report-merged/ 2>/dev/null || true
+            cp -f blob-report-invert/*.zip blob-report-merged/ 2>/dev/null || true
+            npx playwright merge-reports --reporter=html blob-report-merged
           fi
 
       - uses: actions/upload-artifact@v4
