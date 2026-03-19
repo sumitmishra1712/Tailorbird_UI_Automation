@@ -228,7 +228,7 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Change order was successfully added to the list.');
     });
 
-    test.describe.only('TC95 - Complete change order with snapshot', () => {
+    test.describe('TC95 - Complete change order with snapshot', () => {
         test.describe.configure({ retries: 1 });
 
         test('TC95 @regression @changeOrder @changeOrderAndinvoice : Should add complete change order with all fields, verify values, and assert snapshot/Revised Contract Amount', async () => {
