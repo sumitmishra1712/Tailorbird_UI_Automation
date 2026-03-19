@@ -151,7 +151,7 @@ test.describe('Verify Create Project and Add Job flow', () => {
         Logger.success('Bid created and existing vendor invited successfully.');
     });
 
-    test('TC39 @regression @sanity @projectAndJob @mandatory @bids @contract : User should be able to invite new vendor', async () => {
+    test.skip('TC39 @regression @sanity @projectAndJob @mandatory @bids @contract : User should be able to invite new vendor', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();

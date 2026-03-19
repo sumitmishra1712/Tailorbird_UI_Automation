@@ -4,10 +4,8 @@ const { Logger } = require('../utils/logger');
 const helper = require('../pages/leftPanel');
 const locators = require('../locators/leftPanelLocator');
 const data = require('../fixture/leftPanel.json');
-const PropertiesHelper = require('../pages/properties');
-import { getPropertyNameFromDownload } from '../utils/propertyUtils';
 
-let page, prop;
+let page;
 
 test.use({
     storageState: 'sessionState.json',
@@ -16,7 +14,6 @@ test.use({
 
 test.beforeEach(async ({ page: testPage }) => {
     page = testPage;
-    prop = new PropertiesHelper(page);
     Logger.info(`Navigating to dashboard: ${process.env.DASHBOARD_URL}`);
     await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
     await page.waitForLoadState('networkidle');
@@ -45,15 +42,6 @@ test.afterAll(async () => {
 
 
 test.describe('Tailorbird Left Panel Flow - Modular', () => {
-
-    test.skip('@regression @property - Validate Delete Property created in previous run', async () => {
-        await prop.goto(data.dashboardUrl);
-        await prop.goToProperties();
-        const propertyName = getPropertyNameFromDownload();
-        await prop.changeView('Table View');
-        await prop.searchProperty(propertyName);
-        await prop.deleteProperty(propertyName);
-      });
 
     test('TC03 @sanity @regression Verify all menu options are available', async () => {
         const actualLabels = await helper.getLeftPanelLabels(page);

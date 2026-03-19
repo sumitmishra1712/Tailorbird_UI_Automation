@@ -805,29 +805,9 @@ exports.ProjectJob = class ProjectJob {
 
     async applyFilterAndExport(filterValue, projectName) {
         try {
-            const funnelBtn = this.page.locator(".mantine-ActionIcon-icon .lucide-funnel");
-
-            // Retry-with-reload: if the funnel button is not visible (page not fully loaded),
-            // reload once and wait again before failing explicitly.
-            const MAX_RETRIES = 2;
-            let funnelVisible = false;
-            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                Logger.step(`Waiting for funnel button (attempt ${attempt}/${MAX_RETRIES})...`);
-                funnelVisible = await funnelBtn.first().isVisible({ timeout: 15000 }).catch(() => false);
-                if (funnelVisible) break;
-
-                Logger.info(`Funnel button not visible on attempt ${attempt} — reloading page and waiting for networkidle...`);
-                await this.page.reload({ waitUntil: 'networkidle' });
-                await this.page.waitForTimeout(2000);
-            }
-
-            if (!funnelVisible) {
-                throw new Error('Funnel (filter) button not visible after page reload — projects table failed to load in CI.');
-            }
-
-            Logger.step('Funnel button visible — clicking to open filter panel...');
-            await funnelBtn.first().click();
-
+            // await this.openFilterPanel();
+            // await this.applyFilter(filterValue);
+            await this.page.locator(".mantine-ActionIcon-icon .lucide.lucide-funnel:visible").click();
             await this.prop.filterPropertyNew(filterValue);
             const download = await this.exportProjectList();
             const parsed = await this.downloadAndParseCSV(download);
@@ -841,16 +821,8 @@ exports.ProjectJob = class ProjectJob {
     async deleteFirstProjectRow() {
         try {
             Logger.step('Deleting first project row...');
-
-            const deleteBtn = this.locators.deleteRowBtn.first();
-            await deleteBtn.waitFor({ state: 'visible', timeout: 15000 });
-            await deleteBtn.click();
-
-            await this.locators.deleteConfirmBtn.waitFor({ state: 'visible', timeout: 10000 });
+            await this.locators.deleteRowBtn.first().click();
             await this.locators.deleteConfirmBtn.click();
-
-            await this.page.waitForLoadState('networkidle');
-            Logger.success('First project row deleted successfully.');
         } catch (error) {
             Logger.step(`Error in deleteFirstProjectRow: ${error.message}`);
             throw error;
