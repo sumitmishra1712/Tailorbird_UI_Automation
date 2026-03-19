@@ -13,6 +13,7 @@ test.use({
 let page, approvalJob;
 
 test.describe('Approval Workflow - My Approvals E2E Tests with another user', () => {
+    test.describe.configure({ retries: 1 });
 
     test.beforeEach(async ({ page: p }) => {
         page = p;

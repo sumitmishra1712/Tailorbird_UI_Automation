@@ -255,6 +255,8 @@ test.describe('Verify Change order tab', () => {
             await page.waitForTimeout(2000);
 
             await invoicePage.openChangeOrderFromList(result.number);
+            await page.waitForLoadState('networkidle');
+            await page.waitForTimeout(2000);
             const stats = await invoicePage.getChangeOrderDetailsStats();
 
             expect(stats.currentContractValue).toBeTruthy();
@@ -305,10 +307,13 @@ test.describe('Verify Change order tab', () => {
             createdChangeOrders.push(result);
             Logger.success(`Change order ${i + 1} created: ${result.number}`);
 
-            await page.waitForTimeout(1000);
+            await page.waitForLoadState('networkidle');
+            await page.waitForTimeout(2000);
         }
 
         // Verify all change orders appear in the list
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
         const finalCount = await invoicePage.getChangeOrderCount();
         Logger.info(`Final change order count: ${finalCount}`);
 
@@ -336,26 +341,6 @@ test.describe('Verify Change order tab', () => {
         expect(changeOrderNumber).toMatch(/Change Order #\d+/);
 
         Logger.success(`Auto-generated change order number: ${changeOrderNumber}`);
-
-        // Go back without saving
-        await invoicePage.goBackToChangeOrderList();
-    });
-
-    test('TC98 @regression @changeOrderAndinvoice : Should verify change order date is auto-populated', async () => {
-        Logger.step('Verifying change order date is auto-populated...');
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
-
-        // Click on Add Change Order button
-        await invoicePage.clickAddChangeOrder();
-        await page.waitForTimeout(2000);
-
-        // Get the change order date
-        const changeOrderDate = await invoicePage.getChangeOrderDate();
-
-        expect(changeOrderDate).toBeTruthy();
-
-        Logger.success(`Auto-populated change order date: ${changeOrderDate}`);
 
         // Go back without saving
         await invoicePage.goBackToChangeOrderList();

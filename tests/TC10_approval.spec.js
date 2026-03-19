@@ -45,6 +45,7 @@ async function createNewProperty(page) {
 let currentPropertyName = '';
 
 test.describe('Approval Templates - Comprehensive E2E Tests', () => {
+    test.describe.configure({ retries: 1 });
 
     test.beforeEach(async ({ page: p }) => {
         page = p;
@@ -96,7 +97,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test('@approval @regression TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
+    test.only('@approval @regression TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
 
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);

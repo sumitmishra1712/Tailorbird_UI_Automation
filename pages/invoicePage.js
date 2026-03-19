@@ -892,44 +892,47 @@ class InvoicePage {
             await this.page.waitForLoadState('networkidle');
             await this.page.waitForTimeout(2000);
 
-            // If list has a search box, use it for stable verification.
-            const searchText = expectedData.number || expectedData.title;
-            if (searchText) {
-                const search = this.page.getByPlaceholder('Search...').first();
-                if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    await search.fill(String(searchText));
-                    await this.page.waitForTimeout(600);
-                }
+            const search = this.page.getByPlaceholder('Search...').first();
+            if (await search.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await search.fill('');
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(1000);
             }
 
-            // Prefer verifying by change order number (it always exists as first column).
-            if (expectedData.number) {
-                const numberText = String(expectedData.number).trim();
+            const numberText = expectedData.number ? String(expectedData.number).trim() : null;
+            const searchText = expectedData.number || expectedData.title;
+            const escapedForRegex = numberText ? numberText.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') : '';
 
-                // Rows for the change orders grid – accept both ARIA rows and plain <tr>.
-                const row = this.page
-                    .locator('[role="row"], tr')
-                    .filter({
-                        hasText: new RegExp(
-                            `\\b${numberText.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`
-                        )
-                    })
-                    .first();
+            const tryFind = async (useSearch) => {
+                if (useSearch && searchText) {
+                    const search = this.page.getByPlaceholder('Search...').first();
+                    if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        await search.fill(String(searchText));
+                        await this.page.waitForLoadState('networkidle');
+                        await this.page.waitForTimeout(1200);
+                    }
+                }
 
-                const isVisible = await row.isVisible({ timeout: 10000 }).catch(() => false);
+                if (numberText) {
+                    const row = this.page.locator('[role="row"], tr').filter({ hasText: new RegExp(`\\b${escapedForRegex}\\b`) }).first();
+                    if (await row.isVisible({ timeout: 8000 }).catch(() => false)) {
+                        return true;
+                    }
+                    const bodyText = await this.page.locator('body').textContent().catch(() => '') || '';
+                    if (bodyText.includes(numberText)) return true;
+                }
+                return false;
+            };
 
-                if (isVisible) {
+            if (numberText) {
+                if (await tryFind(false)) {
                     Logger.success(`Found change order with number: ${numberText}`);
                     return true;
                 }
-
-                // Fallback: some layouts render the number in non-row containers (cards, summaries).
-                const bodyText = await this.page.locator('body').textContent().catch(() => '') || '';
-                if (bodyText.includes(numberText)) {
-                    Logger.success(`Found change order number "${numberText}" in page content fallback`);
+                if (await tryFind(true)) {
+                    Logger.success(`Found change order number "${numberText}" (with search)`);
                     return true;
                 }
-
                 Logger.info(`Change order with number "${numberText}" not found in list`);
                 return false;
             }
@@ -1134,8 +1137,15 @@ class InvoicePage {
                 await this.goBackToChangeOrderList();
             }
 
+            await this.page.waitForLoadState('networkidle');
+            await this.page.waitForTimeout(2000);
+
             // Verify it appears in list by number (most reliable across Draft/Approved).
-            const inList = await this.verifyChangeOrderInList({ number: changeOrderNumber });
+            let inList = await this.verifyChangeOrderInList({ number: changeOrderNumber });
+            for (let r = 0; r < 3 && !inList; r++) {
+                await this.page.waitForTimeout(3000);
+                inList = await this.verifyChangeOrderInList({ number: changeOrderNumber });
+            }
 
             Logger.success(`Change order ${changeOrderNumber} created successfully.`);
 
