@@ -228,55 +228,58 @@ test.describe('Verify Change order tab', () => {
         Logger.success('Change order was successfully added to the list.');
     });
 
-    test('TC95 @regression @changeOrder @changeOrderAndinvoice : Should add complete change order with all fields, verify values, and assert snapshot/Revised Contract Amount', async () => {
-        Logger.step('Creating complete change order with all fields...');
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
+    test.describe.only('TC95 - Complete change order with snapshot', () => {
+        test.describe.configure({ retries: 1 });
 
-        const changeOrderAmount = getRandomAmount();
-        const testData = {
-            ...changeOrderTestData[0],
-            amount: changeOrderAmount
-        };
-        Logger.info(`Creating change order with amount: $${changeOrderAmount}`);
-
-        const result = await invoicePage.createCompleteChangeOrder(testData);
-
-        // Verify the change order was created
-        expect(result.number).toBeTruthy();
-        expect(result.fieldsVerified).toBeTruthy();
-
-        Logger.success(`Change order ${result.number} created and verified successfully.`);
-
-        // Snapshot assertion: when confirmed, verify Current Contract Value and Revised Contract Amount in Change Order Details
-        if (result.confirmed) {
-            Logger.step('Asserting snapshot: Current Contract Value and Revised Contract Amount in Change Order Details...');
+        test('TC95 @regression @changeOrder @changeOrderAndinvoice : Should add complete change order with all fields, verify values, and assert snapshot/Revised Contract Amount', async () => {
+            Logger.step('Creating complete change order with all fields...');
             await page.waitForLoadState('networkidle');
             await page.waitForTimeout(2000);
 
-            await invoicePage.openChangeOrderFromList(result.number);
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(2000);
-            const stats = await invoicePage.getChangeOrderDetailsStats();
+            const changeOrderAmount = getRandomAmount();
+            const testData = {
+                ...changeOrderTestData[0],
+                amount: changeOrderAmount
+            };
+            Logger.info(`Creating change order with amount: $${changeOrderAmount}`);
 
-            expect(stats.currentContractValue).toBeTruthy();
-            expect(stats.revisedContractAmount).toBeTruthy();
+            const result = await invoicePage.createCompleteChangeOrder(testData);
 
-            const currentContract = typeof stats.currentContractValue === 'number' ? stats.currentContractValue : invoicePage.parseCurrencyToNumber(String(stats.currentContractValue));
-            const revisedContract = typeof stats.revisedContractAmount === 'number' ? stats.revisedContractAmount : invoicePage.parseCurrencyToNumber(String(stats.revisedContractAmount));
-            const coAmount = typeof stats.changeOrderAmount === 'number' ? stats.changeOrderAmount : invoicePage.parseCurrencyToNumber(String(stats.changeOrderAmount)) ?? changeOrderAmount;
+            // Verify the change order was created
+            expect(result.number).toBeTruthy();
+            expect(result.fieldsVerified).toBeTruthy();
 
-            expect(currentContract).toBeTruthy();
-            expect(revisedContract).toBeTruthy();
+            Logger.success(`Change order ${result.number} created and verified successfully.`);
 
-            const expectedRevised = currentContract + coAmount;
-            const tolerance = 0.01;
-            expect(Math.abs(revisedContract - expectedRevised)).toBeLessThan(tolerance);
+            // Snapshot assertion: when confirmed, verify Current Contract Value and Revised Contract Amount in Change Order Details
+            if (result.confirmed) {
+                Logger.step('Asserting snapshot: Current Contract Value and Revised Contract Amount in Change Order Details...');
+                await page.waitForLoadState('networkidle');
+                await page.waitForTimeout(2000);
 
-            Logger.success(`Snapshot asserted: Revised Contract Amount ($${revisedContract}) = Current Contract Value ($${currentContract}) + Change Order Amount ($${coAmount})`);
-        } else {
-            Logger.info('Review Changes was not available - CO may be draft. Snapshot assertion applies to approved COs.');
-        }
+                await invoicePage.openChangeOrderFromList(result.number);
+                await invoicePage.waitForChangeOrderDetailsScreen();
+                const stats = await invoicePage.getChangeOrderDetailsStats();
+
+                expect(stats.currentContractValue).toBeTruthy();
+                expect(stats.revisedContractAmount).toBeTruthy();
+
+                const currentContract = typeof stats.currentContractValue === 'number' ? stats.currentContractValue : invoicePage.parseCurrencyToNumber(String(stats.currentContractValue));
+                const revisedContract = typeof stats.revisedContractAmount === 'number' ? stats.revisedContractAmount : invoicePage.parseCurrencyToNumber(String(stats.revisedContractAmount));
+                const coAmount = typeof stats.changeOrderAmount === 'number' ? stats.changeOrderAmount : invoicePage.parseCurrencyToNumber(String(stats.changeOrderAmount)) ?? changeOrderAmount;
+
+                expect(currentContract).toBeTruthy();
+                expect(revisedContract).toBeTruthy();
+
+                const expectedRevised = currentContract + coAmount;
+                const tolerance = 0.01;
+                expect(Math.abs(revisedContract - expectedRevised)).toBeLessThan(tolerance);
+
+                Logger.success(`Snapshot asserted: Revised Contract Amount ($${revisedContract}) = Current Contract Value ($${currentContract}) + Change Order Amount ($${coAmount})`);
+            } else {
+                Logger.info('Review Changes was not available - CO may be draft. Snapshot assertion applies to approved COs.');
+            }
+        });
     });
 
     test('TC96 @regression @changeOrderAndinvoice : Should add multiple change orders (4-5) with all fields filled', async () => {

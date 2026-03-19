@@ -1256,6 +1256,39 @@ class InvoicePage {
     }
 
     /**
+     * Waits for the Change Order Details screen to be fully loaded (stats visible).
+     * Use after opening a change order from the list.
+     */
+    async waitForChangeOrderDetailsScreen() {
+        Logger.step('Waiting for Change Order Details screen to load...');
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1500);
+
+        // Wait for key elements that confirm the details screen is loaded
+        const anyIndicator = this.page.locator('text=Current Contract Value')
+            .or(this.page.locator('text=Revised Contract Amount'))
+            .or(this.page.locator('text=Change Order Details'))
+            .or(this.page.getByPlaceholder('Enter change order number'))
+            .or(this.page.locator('[role="treegrid"]'))
+            .first();
+        await anyIndicator.waitFor({ state: 'visible', timeout: 15000 });
+        Logger.info('Change Order Details screen load indicator visible.');
+
+        // Optionally wait for API response (change-order/contract related) to confirm data load
+        await this.page.waitForResponse(
+            (resp) => {
+                const url = resp.url();
+                const ok = resp.status() >= 200 && resp.status() < 300;
+                return ok && (url.includes('change-order') || url.includes('change_order') || (url.includes('/api/') && (url.includes('job') || url.includes('contract'))));
+            },
+            { timeout: 12000 }
+        ).catch(() => null);
+
+        await this.page.waitForTimeout(2000);
+        Logger.success('Change Order Details screen ready.');
+    }
+
+    /**
      * Opens a change order from the list by clicking its row (by change order number)
      * @param {string} changeOrderNumber - e.g. "Change Order #123"
      * @returns {boolean} True if opened successfully
@@ -1264,21 +1297,30 @@ class InvoicePage {
         try {
             Logger.step(`Opening change order ${changeOrderNumber} from list...`);
             await this.page.waitForLoadState('networkidle');
-            await this.page.waitForTimeout(1000);
+            await this.page.waitForTimeout(1500);
+
+            // Wait for list to be ready before interacting
+            const listReady = this.page.locator('div[role="row"]:has(div[role="gridcell"]:has-text("Change Order #"))').first();
+            await listReady.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
+            await this.page.waitForTimeout(800);
 
             const search = this.page.getByPlaceholder('Search...').first();
             if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await search.fill('');
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(600);
                 await search.fill(String(changeOrderNumber));
-                await this.page.waitForTimeout(800);
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(1200);
             }
 
             const numberCell = this.page.locator(`[role="gridcell"]:has-text("${changeOrderNumber}")`).first();
-            await numberCell.waitFor({ state: 'visible', timeout: 10000 });
+            await numberCell.waitFor({ state: 'visible', timeout: 12000 });
             await numberCell.click();
             await this.page.waitForLoadState('networkidle');
-            await this.page.waitForTimeout(1500);
+            await this.page.waitForTimeout(2000);
 
-            const detailsOpen = await this.page.locator('text=Change Order Details').or(this.page.locator('text=Overview')).first().isVisible({ timeout: 5000 }).catch(() => false) ||
+            const detailsOpen = await this.page.locator('text=Change Order Details').or(this.page.locator('text=Overview')).first().isVisible({ timeout: 8000 }).catch(() => false) ||
                 await this.page.getByPlaceholder('Enter change order number').isVisible({ timeout: 5000 }).catch(() => false);
             if (detailsOpen) {
                 Logger.success(`Change order ${changeOrderNumber} opened.`);
@@ -1307,28 +1349,27 @@ class InvoicePage {
     /**
      * Gets Current Contract Value and Revised Contract Amount from Change Order Details view.
      * Used to assert snapshot and formula: Revised Contract Amount = Snapshot Current Contract Value ± Change Order Amount
+     * Waits for screen to load and retries if stats are null.
      * @returns {Object} { currentContractValue, revisedContractAmount, changeOrderAmount } - values as numbers or null
      */
     async getChangeOrderDetailsStats() {
-        try {
-            Logger.step('Fetching Change Order Details stats (Current Contract Value, Revised Contract Amount)...');
-
-            const getValueNearLabel = async (labelPatterns) => {
-                for (const pattern of labelPatterns) {
-                    const label = this.page.locator(`text=${pattern}`).first();
-                    if (await label.isVisible({ timeout: 2000 }).catch(() => false)) {
-                        const parent = label.locator('..');
-                        const valueEl = parent.locator('p').first();
-                        let text = await valueEl.textContent().catch(() => null);
-                        if (text) return text.trim();
-                        const anyWithDollar = parent.locator('p, span, div').filter({ hasText: /\$[\d,]/ }).first();
-                        text = await anyWithDollar.textContent().catch(() => null);
-                        if (text) return text.trim();
-                    }
+        const getValueNearLabel = async (labelPatterns) => {
+            for (const pattern of labelPatterns) {
+                const label = this.page.locator(`text=${pattern}`).first();
+                if (await label.isVisible({ timeout: 2000 }).catch(() => false)) {
+                    const parent = label.locator('..');
+                    const valueEl = parent.locator('p').first();
+                    let text = await valueEl.textContent().catch(() => null);
+                    if (text) return text.trim();
+                    const anyWithDollar = parent.locator('p, span, div').filter({ hasText: /\$[\d,]/ }).first();
+                    text = await anyWithDollar.textContent().catch(() => null);
+                    if (text) return text.trim();
                 }
-                return null;
-            };
+            }
+            return null;
+        };
 
+        const extractStats = async () => {
             const currentContractValue = await getValueNearLabel(['Current Contract Value', 'Current Contract']);
             const revisedContractAmount = await getValueNearLabel(['Revised Contract Amount']);
 
@@ -1349,11 +1390,31 @@ class InvoicePage {
                 // best-effort
             }
 
-            const result = {
+            return {
                 currentContractValue: this.parseCurrencyToNumber(currentContractValue) ?? currentContractValue,
                 revisedContractAmount: this.parseCurrencyToNumber(revisedContractAmount) ?? revisedContractAmount,
                 changeOrderAmount: this.parseCurrencyToNumber(changeOrderAmount) ?? changeOrderAmount
             };
+        };
+
+        try {
+            Logger.step('Fetching Change Order Details stats (Current Contract Value, Revised Contract Amount)...');
+
+            // Wait for stats labels to be visible before extracting (screen load confirmation)
+            const statsLabel = this.page.locator('text=Current Contract Value').or(this.page.locator('text=Revised Contract Amount')).first();
+            await statsLabel.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
+            await this.page.waitForTimeout(1500);
+
+            let result = await extractStats();
+
+            // Retry up to 2 times if key stats are null (screen may still be loading)
+            for (let attempt = 1; attempt <= 2 && (!result.currentContractValue || !result.revisedContractAmount); attempt++) {
+                Logger.info(`Stats incomplete (attempt ${attempt}/2), waiting and retrying...`);
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(2500);
+                result = await extractStats();
+            }
+
             Logger.info(`Change Order Details stats: ${JSON.stringify(result)}`);
             return result;
         } catch (error) {

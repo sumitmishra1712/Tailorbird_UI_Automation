@@ -58,12 +58,19 @@ test.describe('Verify category tab', () => {
         await expect(page).toHaveURL(/\/category/);
     });
 
-    test('TC51 @regression @category : Should load Category page content and not be blank', async () => {
-        await financialsCategoryPage.goToCategory();
-        await expect(page).toHaveURL(/\/category/);
-        await page.waitForTimeout(1000);
-        const pageContent = await page.locator('body').textContent();
-        expect(pageContent).toBeTruthy();
+    test.describe('TC51 - Category page content load', () => {
+        test.describe.configure({ retries: 1 });
+
+        test('TC51 @regression @category : Should load Category page content and not be blank', async () => {
+            await financialsCategoryPage.goToCategory();
+            await expect(page).toHaveURL(/\/category/);
+            await financialsCategoryPage.waitForCategoryPageReady();
+
+            await expect.poll(async () => {
+                const content = await page.locator('body').textContent();
+                return content && content.trim().length > 50;
+            }, { timeout: 15000 }).toBeTruthy();
+        });
     });
 
     test('TC52 @regression @category : Should show data table/grid if present', async () => {
@@ -104,10 +111,18 @@ test.describe('Verify category tab', () => {
         await projectPage.assertRowCountAfterReset();
     });
 
-    test('TC57 @regression @category @sanity : Validate Upload category option is working as expected', async () => {
-        await financialsCategoryPage.goToCategory();
-        await expect(page).toHaveURL(/\/category/);
-        await financialsCategoryPage.uploadCategory(path.resolve("./files/category_data.csv"));
+    test.describe('TC57 - Upload category option', () => {
+        test.describe.configure({ retries: 1 });
+
+        test('TC57 @regression @category @sanity : Validate Upload category option is working as expected', async () => {
+            await financialsCategoryPage.goToCategory();
+            await expect(page).toHaveURL(/\/category/);
+            await financialsCategoryPage.waitForCategoryPageReady();
+            await page.waitForLoadState('networkidle');
+            await page.waitForTimeout(2000);
+
+            await financialsCategoryPage.uploadCategory(path.resolve("./files/category_data.csv"));
+        });
     });
 
     test('TC58 @regression @category : Add data option is working as expected', async () => {

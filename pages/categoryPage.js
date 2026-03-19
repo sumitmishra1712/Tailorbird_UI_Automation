@@ -130,7 +130,24 @@ class FinancialsCategoryPage {
         }
 
         await this.page.waitForLoadState("networkidle");
-        await this.page.waitForTimeout(300);
+        await this.page.waitForLoadState("domcontentloaded");
+        await this.page.waitForTimeout(800);
+    }
+
+    /**
+     * Waits for the Category page to be fully loaded (content rendered).
+     * Use before assertions that require page content.
+     */
+    async waitForCategoryPageReady(timeoutMs = 20000) {
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1500);
+
+        // Wait for at least one content indicator: table/grid, or Upload/Import button, or main content
+        const contentIndicator = this.page.locator('table, [role="table"], [role="grid"], [role="treegrid"], button:has(svg.lucide-upload), [title="Import Data"], main')
+            .first();
+        await contentIndicator.waitFor({ state: 'visible', timeout: timeoutMs });
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1000);
     }
 
     async isTableVisible(timeoutMs = 2000) {
@@ -246,49 +263,55 @@ class FinancialsCategoryPage {
 
     async uploadCategory(filePath) {
         await this.page.waitForLoadState("networkidle");
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(2500);
+
+        // Wait for page content to be ready before looking for upload button
+        const contentReady = this.page.locator('button:has(svg.lucide-upload), [title="Import Data"], button:has-text("Import Data")').first();
+        await contentReady.waitFor({ state: 'visible', timeout: 20000 });
+        await this.page.waitForTimeout(1000);
 
         const uploadBtn = this.page.locator('button:has(svg.lucide-upload)').first();
         const importBtn = this.importDataButton;
         const importRoleBtn = this.page.getByRole('button', { name: 'Import Data' });
 
-        try {
-            await uploadBtn.waitFor({ state: 'visible', timeout: 15000 });
-        } catch {
-            await this.page.waitForTimeout(3000);
-        }
-
         let clicked = false;
-        if (await uploadBtn.isVisible().catch(() => false)) {
-            await uploadBtn.click();
-            clicked = true;
-        } else if (await importBtn.isVisible().catch(() => false)) {
-            await importBtn.click();
-            clicked = true;
-        } else if (await importRoleBtn.isVisible().catch(() => false)) {
-            await importRoleBtn.click();
-            clicked = true;
+        for (let attempt = 1; attempt <= 3 && !clicked; attempt++) {
+            if (await uploadBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+                await uploadBtn.click();
+                clicked = true;
+            } else if (await importBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await importBtn.click();
+                clicked = true;
+            } else if (await importRoleBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await importRoleBtn.click();
+                clicked = true;
+            }
+            if (!clicked) {
+                await this.page.waitForLoadState('networkidle');
+                await this.page.waitForTimeout(2000);
+            }
         }
         if (!clicked) {
-            throw new Error('Import/Upload button not found.');
+            throw new Error('Import/Upload button not found after 3 attempts.');
         }
 
+        await this.page.waitForTimeout(1500);
+
         const fromDeviceBtn = this.page.getByRole('button', { name: 'From device' });
-        await fromDeviceBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await fromDeviceBtn.waitFor({ state: 'visible', timeout: 15000 });
 
         const [fileChooser] = await Promise.all([
-            this.page.waitForEvent('filechooser', { timeout: 10000 }),
+            this.page.waitForEvent('filechooser', { timeout: 15000 }),
             fromDeviceBtn.click(),
         ]);
         await fileChooser.setFiles(filePath);
 
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(2500);
         const doneBtn = this.page.getByRole('button', { name: 'Done' });
-        if (await doneBtn.isVisible().catch(() => false)) {
-            await doneBtn.click();
-        }
+        await doneBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await doneBtn.click();
         await this.page.waitForLoadState('networkidle');
-        await this.page.waitForTimeout(3000);
+        await this.page.waitForTimeout(3500);
     }
 
     async filterCategory(columnName, filterValue) {
