@@ -97,7 +97,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
         }
     });
 
-    test.only('@approval @regression TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
+    test('@approval @regression TC104 Approval Templates – Verify system validations and error handling when creating an approval template with missing, invalid, or incorrect inputs', async () => {
 
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
