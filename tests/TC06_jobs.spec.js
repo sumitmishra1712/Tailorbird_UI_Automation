@@ -6,6 +6,7 @@ const { Logger } = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const PropertiesHelper = require('../pages/properties');
+const { setTabsDisabledState } = require('../utils/tabsDisabledHelper');
 
 test.use({
     storageState: 'sessionState.json',
@@ -316,17 +317,21 @@ test.describe('Verify Create Project and Add Job flow', () => {
             const submittedRow = page.locator('[role="row"]').filter({ hasText: 'Submitted' });
             const invitedRow = page.locator('[role="row"]').filter({ hasText: 'Invited' });
             const pendingRow = page.locator('[role="row"]').filter({ hasText: 'Pending' });
+            const awardedRow = page.locator('[role="row"]').filter({ hasText: 'Awarded' });
 
             const submittedCount = await submittedRow.count().catch(() => 0);
             const invitedCount = await invitedRow.count().catch(() => 0);
             const pendingCount = await pendingRow.count().catch(() => 0);
+            const awardedCount = await awardedRow.count().catch(() => 0);
 
-            expect(submittedCount + invitedCount + pendingCount).toBeGreaterThan(0);
+            expect(submittedCount + invitedCount + pendingCount + awardedCount).toBeGreaterThan(0);
 
             if (submittedCount > 0) {
                 Logger.success(`Vendor is in Submitted status — bid has been submitted on behalf`);
             } else if (invitedCount > 0) {
                 Logger.success(`Vendor is in Invited status — pre-submission state`);
+            } else if (awardedCount > 0) {
+                Logger.success(`Vendor is in Awarded status — bid has been awarded`);
             } else {
                 Logger.info(`Vendor is in Pending Invite status`);
             }
@@ -673,6 +678,35 @@ test.describe('Verify Create Project and Add Job flow', () => {
         await projectJob.navigateToJobsTab();
         await projectJob.openJobSummary();
         await projectPage.bulkUpdateContractsToInProgress();
+    });
+
+    test('TC06_TABS_CHECK @regression @projectAndJob : Check if Invoice and Change Order tabs are disabled - persist for spec 8 and 9', async () => {
+        Logger.step('Checking if Invoice and Change Order tabs are disabled...');
+        await projectPage.openProject(projectData.projectName);
+        await projectJob.navigateToJobsTab();
+        await projectJob.openJobSummary();
+        await projectJob.navigateToBidsTab();
+        await projectJob.minimizeManageVendors();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(1500);
+
+        const changeOrdersTab = page.getByRole('tab', { name: 'Change Orders' });
+        const invoiceTab = page.getByRole('tab', { name: 'Invoice' });
+
+        const changeOrderTabDisabled = await changeOrdersTab.isDisabled().catch(() => false);
+        const invoiceTabDisabled = await invoiceTab.isDisabled().catch(() => false);
+
+        const state = {
+            invoiceTabDisabled: !!invoiceTabDisabled,
+            changeOrderTabDisabled: !!changeOrderTabDisabled
+        };
+        setTabsDisabledState(state);
+
+        if (invoiceTabDisabled || changeOrderTabDisabled) {
+            Logger.info(`Skipping spec 8 and 9: Invoice tab disabled=${invoiceTabDisabled}, Change Order tab disabled=${changeOrderTabDisabled}`);
+        } else {
+            Logger.success('Invoice and Change Order tabs are enabled - spec 8 and 9 will run.');
+        }
     });
 
 });

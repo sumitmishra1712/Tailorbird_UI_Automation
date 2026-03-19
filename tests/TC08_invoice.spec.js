@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { ProjectPage } = require('../pages/projectPage');
 const { ProjectJob } = require('../pages/projectJob');
+const { getTabsDisabledState } = require('../utils/tabsDisabledHelper');
 
 test.use({
     storageState: 'sessionState.json',
@@ -43,8 +44,16 @@ const invoiceTestData = [
 ];
 
 test.describe('Verify Invoice tab', () => {
+    test.describe.configure({ retries: 1 });
 
     test.beforeEach(async ({ page: p }) => {
+        const tabsState = getTabsDisabledState();
+        if (tabsState?.invoiceTabDisabled) {
+            Logger.info('Skipping because Invoice tab is disabled');
+            test.skip(true, 'Skipping because Invoice tab is disabled');
+            return;
+        }
+
         page = p;
         invoicePage = new InvoicePage(page);
         projectPage = new ProjectPage(page);

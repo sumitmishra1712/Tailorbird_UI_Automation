@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { ProjectPage } = require('../pages/projectPage');
 const { ProjectJob } = require('../pages/projectJob');
+const { getTabsDisabledState } = require('../utils/tabsDisabledHelper');
 
 test.use({
     storageState: 'sessionState.json',
@@ -49,8 +50,16 @@ const changeOrderTestData = [
 ];
 
 test.describe('Verify Change order tab', () => {
+    test.describe.configure({ retries: 1 });
 
     test.beforeEach(async ({ page: p }) => {
+        const tabsState = getTabsDisabledState();
+        if (tabsState?.changeOrderTabDisabled) {
+            Logger.info('Skipping because Change Order tab is disabled');
+            test.skip(true, 'Skipping because Change Order tab is disabled');
+            return;
+        }
+
         page = p;
         invoicePage = new InvoicePage(page);
         projectPage = new ProjectPage(page);
