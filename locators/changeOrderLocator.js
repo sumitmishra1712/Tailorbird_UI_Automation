@@ -6,7 +6,7 @@ function changeOrderLocators(page) {
     return {
         // Change Order Tab and List
         changeOrderTab: page.getByRole('tab', { name: 'Change Orders' }),
-        addChangeOrderButton: page.getByRole('button', { name: 'Change Order' }).last(),
+        addChangeOrderButton: page.getByRole('button', { name: 'Change Order', exact: true }),
         
         // Change Order List Grid
         changeOrderGrid: page.locator('revo-grid:has([role="columnheader"] span:text("Change Order Number"))'),

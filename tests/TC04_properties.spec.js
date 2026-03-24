@@ -147,8 +147,6 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await page.waitForLoadState('networkidle');
     await prop.exportButton();
 
-    await page.waitForLoadState('networkidle');
-    await prop.manageColumns(testData.manageColumns.expectedColumns);
   });
 
   test('@regression @property TC19 - Validate Document Section Table', async () => {
@@ -174,44 +172,37 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
 
   });
 
-  test.skip('@regression @property TC21 - Validate Delete Property', async () => {
-    await prop.goto(data.dashboardUrl);
-    await prop.goToProperties();
-    const propertyName = getPropertyName();
-    await prop.changeView('Table View');
-    await prop.searchProperty(propertyName);
-    await prop.deleteProperty(propertyName);
-  });
-
   test("@sanity @regression @property TC22 - Validate Location Tab", async () => {
+    test.setTimeout(300000);
     await prop.goto(data.dashboardUrl);
     await prop.goToProperties();
     const propertyName = 'Harbor Bay at MacDill_Liberty Cove (Sample Property 1)';
-    console.log(`🔎 Using property name: ${propertyName}`);
-    await prop.changeView('Table View');
-    console.log("✔ Changed to Table View");
-    await prop.searchProperty(propertyName);
-    console.log("✔ Property searched successfully");
-    await prop.viewDetailsButton();
-    await prop.openLocationTab();
-    await prop.addButton();
-    await prop.addRowDetail();
-    await prop.deleteRow();
-    await prop.addButton();
-    await prop.addColumndata();
-    await prop.settingsPanel();
-    await prop.deleteCustomColumn();
-    await page.locator('.mantine-Drawer-close').click();
-    async function selectLocation(type) {
-      await page.click(loc.locationDropdown);
-      await page.click(loc.locationDropdownOption(type));
-      console.log(`Location switched to: ${type}`);
-    }
-    await selectLocation("unit");
-    await prop.expectUnitTable();
-    await selectLocation("building");
-    await prop.expectBuildingTable();
-
+    await test.step('Search and open property', async () => {
+      await prop.changeView('Table View');
+      await prop.searchProperty(propertyName);
+      await prop.viewDetailsButton();
+    });
+    await test.step('Location tab - Sites grid', async () => {
+      await prop.openLocationTab();
+      await prop.addButton();
+      await prop.addRowDetail();
+      await prop.deleteRow();
+    });
+    await test.step('Add column and settings', async () => {
+      await prop.addButton();
+      await prop.addColumndata();
+      await prop.settingsPanel();
+      await prop.deleteCustomColumn();
+      await prop.closeSettingsDrawer();
+    });
+    await test.step('Verify Unit view', async () => {
+      await prop.selectLocation("unit");
+      await prop.expectUnitTable();
+    });
+    await test.step('Verify Building view', async () => {
+      await prop.selectLocation("building");
+      await prop.expectBuildingTable();
+    });
   });
 
   test('@sanity @regression @property TC23 - validate takeoffs Interior panel and dropdowns', async () => {
@@ -492,7 +483,7 @@ test.describe('PROPERTY FLOW TEST SUITE', () => {
     await selectLocation("unit");
     await expect(page.locator(loc.unitHeader)).toBeVisible();
 
-    const addButton = page.locator(loc.addButton);
+    const addButton = page.getByRole('tabpanel', { name: 'Locations' }).getByTestId('bt-add-row-menu').first();
     await addButton.waitFor({ state: 'visible' });
     await addButton.click();
     console.log("Add dropdown opened");

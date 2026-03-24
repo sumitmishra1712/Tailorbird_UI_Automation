@@ -591,22 +591,16 @@ exports.BudgetJob = class BudgetJob {
     // ===================== Revise Budget - Row Operations =====================
 
     async deleteFirstRowInRevision() {
-        const dialog = budget.revisionDialog;
-        let rows = budget.treegridDataRows;
-        if (await dialog.first().isVisible({ timeout: 5000 }).catch(() => false)) {
-            const dialogRows = dialog.locator('[role="treegrid"] [role="row"][data-rgrow]');
-            const dc = await dialogRows.count();
-            if (dc > 0) rows = dialogRows;
-        }
-        await expect(rows.first()).toBeVisible({ timeout: 20000 });
-        await this.page.waitForTimeout(1000);
-        const firstRow = rows.nth(0);
-        const deleteBtn = firstRow.locator('button:has(svg.lucide-trash2), button[aria-label*="Delete" i], button[title*="Delete" i], button[aria-label*="Remove" i]')
-            .or(firstRow.locator('button').filter({ has: this.page.locator('svg') }).nth(1))
-            .or(firstRow.locator('button').nth(1));
-        await expect(deleteBtn.first()).toBeVisible({ timeout: 15000 });
-        await deleteBtn.first().click({ force: true });
-        await this.page.waitForTimeout(2000);
+        const dialog = budget.revisionDialog.first();
+        await expect(dialog).toBeVisible({ timeout: 10000 });
+        const treegrid = dialog.locator('[role="treegrid"]').first();
+        await expect(treegrid).toBeVisible({ timeout: 10000 });
+
+        const actionRowDeleteBtns = treegrid.locator('[role="row"]:has([role="gridcell"] button) button:has(svg.lucide-trash2)');
+        const deleteBtn = actionRowDeleteBtns.first();
+        await deleteBtn.scrollIntoViewIfNeeded();
+        await deleteBtn.click({ force: true });
+
         await expect(budget.submitForApprovalBtn).toBeEnabled({ timeout: 15000 });
         Logger.success('First row deleted - Submit for Approval enabled');
     }

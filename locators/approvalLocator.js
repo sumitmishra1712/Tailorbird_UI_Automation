@@ -18,7 +18,8 @@ function approvalJobLocators(page) {
         exportButton: page.locator('button').nth(6),
         
         // Create Template button
-        createTemplateButton: page.getByRole('button', { name: 'Create Template' }),
+        // createTemplateButton: page.getByRole('button', { name: 'Create Template' }),
+        createTemplateButton: page.getByRole('button', { name: 'Create Template' }).first(),
         
         // Form inputs on Create/Edit Template dialog
         templateNameInput: page.getByPlaceholder('Enter template name'),

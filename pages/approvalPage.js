@@ -766,13 +766,13 @@ exports.ApprovalJob = class ApprovalJob {
         }
     }
 
-    async addApprover() {
+    async addApprover(approverName = 'sumit test') {
         const approverTimeout = 15000;
         try {
-            Logger.step('Adding approver from dropdown');
+            Logger.step('Adding approver from dropdown: ' + approverName);
             const approverInput = approval.selectApproverInput.first();
             await approverInput.waitFor({ state: 'visible', timeout: approverTimeout });
-            await approverInput.fill('sumit test', { timeout: approverTimeout });
+            await approverInput.fill(approverName, { timeout: approverTimeout });
             await this.page.waitForTimeout(800);
             await this.page.keyboard.press('ArrowDown');
             await this.page.waitForTimeout(300);
@@ -781,6 +781,57 @@ exports.ApprovalJob = class ApprovalJob {
             Logger.success('Approver added from dropdown');
         } catch (error) {
             Logger.error('Error adding approver: ' + error.message);
+            throw error;
+        }
+    }
+
+    async addThreeApprovers() {
+        const approverTimeout = 15000;
+        const approverInputs = approval.selectApproverInput;
+        try {
+            // 1st approver: sumit mishra
+            Logger.step('Adding approver 1/3: sumit mishra');
+            const input0 = approverInputs.nth(0);
+            await input0.waitFor({ state: 'visible', timeout: approverTimeout });
+            await input0.click();
+            await this.page.waitForTimeout(300);
+            await input0.fill('sumit mishra', { timeout: approverTimeout });
+            await this.page.waitForTimeout(800);
+            await this.page.keyboard.press('ArrowDown');
+            await this.page.waitForTimeout(300);
+            await this.page.keyboard.press('Enter');
+            await this.page.waitForTimeout(800);
+            Logger.success('Approver 1 added: sumit mishra');
+
+            // 2nd approver: sumit test
+            Logger.step('Adding approver 2/3: sumit test');
+            const input1 = approverInputs.nth(1);
+            await input1.waitFor({ state: 'visible', timeout: approverTimeout });
+            await input1.click();
+            await this.page.waitForTimeout(300);
+            await input1.fill('sumit test', { timeout: approverTimeout });
+            await this.page.waitForTimeout(800);
+            await this.page.keyboard.press('ArrowDown');
+            await this.page.waitForTimeout(300);
+            await this.page.keyboard.press('Enter');
+            await this.page.waitForTimeout(800);
+            Logger.success('Approver 2 added: sumit test');
+
+            // 3rd approver: select any option except sumit mishra and sumit test (skip first options via ArrowDown)
+            Logger.step('Adding approver 3/3: selecting any other option');
+            const input2 = approverInputs.nth(2);
+            await input2.waitFor({ state: 'visible', timeout: approverTimeout });
+            await input2.click();
+            await this.page.waitForTimeout(500);
+            for (let k = 0; k < 3; k++) {
+                await this.page.keyboard.press('ArrowDown');
+                await this.page.waitForTimeout(150);
+            }
+            await this.page.keyboard.press('Enter');
+            await this.page.waitForTimeout(800);
+            Logger.success('Approver 3 added: selected from dropdown');
+        } catch (error) {
+            Logger.error('Error adding approvers: ' + error.message);
             throw error;
         }
     }
@@ -814,6 +865,40 @@ exports.ApprovalJob = class ApprovalJob {
             Logger.success('Always Required checkbox checked');
         } catch (error) {
             Logger.error('Error checking Always Required: ' + error.message);
+            throw error;
+        }
+    }
+
+    async checkAlwaysRequiredCount(count = 3) {
+        try {
+            Logger.step(`Checking first ${count} Always Required checkboxes`);
+            const checkboxes = this.page.locator('input[type="checkbox"]');
+            const total = await checkboxes.count();
+            const limit = Math.min(count, total);
+
+            for (let i = 0; i < limit; i++) {
+                const checkbox = checkboxes.nth(i);
+                const isChecked = await checkbox.isChecked();
+                if (!isChecked) {
+                    await checkbox.click();
+                    await this.page.waitForTimeout(200);
+                }
+            }
+
+            Logger.success(`Checked ${limit} Always Required checkboxes`);
+        } catch (error) {
+            Logger.error('Error checking multiple Always Required checkboxes: ' + error.message);
+            throw error;
+        }
+    }
+
+    async checkAllAlwaysRequired() {
+        try {
+            const checkboxes = this.page.locator('input[type="checkbox"]');
+            const total = await checkboxes.count();
+            await this.checkAlwaysRequiredCount(total);
+        } catch (error) {
+            Logger.error('Error checking all Always Required checkboxes: ' + error.message);
             throw error;
         }
     }
@@ -1129,7 +1214,7 @@ exports.ApprovalJob = class ApprovalJob {
     // HIGH-LEVEL WORKFLOW METHODS FOR TESTS
     // ==============================================
 
-    async createTemplateWorkflow(templateName, templateType = 'Change Order', propertyName = null, amount = 5000, shouldSubmit = true) {
+    async createTemplateWorkflow(templateName, templateType = 'Change Order', propertyName = null, amount = 5000, shouldSubmit = true, selectAllAlwaysRequired = false) {
         try {
             Logger.step(`Creating template: ${templateName} (Type: ${templateType})`);
 
@@ -1145,10 +1230,10 @@ exports.ApprovalJob = class ApprovalJob {
                 Logger.info('Property added: ' + propertyName);
             }
 
-            // Add approver
+            // Add three approvers (sumit mishra, sumit test, anyone)
             try {
-                await this.addApprover();
-                Logger.info('Approver added');
+                await this.addThreeApprovers();
+                Logger.info('Three approvers added');
             } catch (e) {
                 Logger.info('Approver selection skipped');
             }
@@ -1157,9 +1242,14 @@ exports.ApprovalJob = class ApprovalJob {
             await this.fillAmount(amount);
             Logger.info('Amount filled: ' + amount);
 
-            // Check always required checkbox
-            await this.checkAlwaysRequired();
-            Logger.info('Always Required checkbox checked');
+            // Check always required checkbox(es)
+            if (selectAllAlwaysRequired) {
+                await this.checkAllAlwaysRequired();
+                Logger.info('All Always Required checkboxes checked');
+            } else {
+                await this.checkAlwaysRequired();
+                Logger.info('Always Required checkbox checked');
+            }
 
             // Submit or cancel
             if (shouldSubmit) {
@@ -1188,7 +1278,8 @@ exports.ApprovalJob = class ApprovalJob {
                     templateType,
                     propertyName,
                     5000,
-                    false // Don't submit, just test creation flow
+                    false, // Don't submit, just test creation flow
+                    true // For TC117: select all Always Required checkboxes
                 );
             }
 

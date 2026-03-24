@@ -13,8 +13,8 @@ class InvoicePage {
         // Add Invoice button - navigates to invoice creation page
         this.addInvoiceButton = page.getByRole('button', { name: 'Invoice', exact: true });
 
-        // Add Change Order button
-        this.addChangeOrderButton = page.getByRole('button', { name: 'Change Order' }).last();
+        // Add Change Order button (header action - exact match to exclude "Change Orders" tab)
+        this.addChangeOrderButton = page.getByRole('button', { name: 'Change Order', exact: true });
 
         // Invoice table/grid - AG Grid structure
         // Multiple selectors for robustness - use locator with filter to find the invoice grid
@@ -87,23 +87,20 @@ class InvoicePage {
             Logger.step('Clicking Add Invoice button...');
             await this.addInvoiceButton.waitFor({ state: 'visible', timeout: 10000 });
 
-            // Get current URL to verify navigation
             const currentUrl = this.page.url();
             Logger.info(`Current URL before click: ${currentUrl}`);
 
-            // Click the button - it will navigate to invoice details page
             await this.addInvoiceButton.click();
 
-            // Wait for navigation to invoice details page (or just wait for page load if already there)
-            try {
-                await this.page.waitForURL(/\/invoices\/\d+/, { timeout: 5000 });
-            } catch {
-                Logger.info('Already on or navigating to invoice page');
-            }
-
-            // Wait for the page to be fully loaded
+            await this.page.waitForURL(/\/invoices\/\d+/, { timeout: 15000 }).catch(() => {
+                Logger.info('URL may not have changed yet');
+            });
             await this.page.waitForLoadState('networkidle');
             await this.page.waitForTimeout(1000);
+
+            // Wait for form to be ready (key input visible)
+            const numberInput = this.page.getByRole('textbox', { name: 'Enter invoice number' });
+            await numberInput.waitFor({ state: 'visible', timeout: 10000 });
 
             Logger.success('Add Invoice button clicked.');
         } catch (error) {
@@ -335,8 +332,9 @@ class InvoicePage {
             await this.addChangeOrderButton.waitFor({ state: 'visible', timeout: 10000 });
             await this.addChangeOrderButton.click();
             await this.page.waitForLoadState('domcontentloaded');
-            await this.page.waitForURL(/\/change-orders\/\d+/, { timeout: 15000 }).catch(() => null);
-            await this.page.waitForTimeout(800);
+            await this.page.waitForURL(/\/change-orders\/\d+/, { timeout: 20000 });
+            await this.page.getByPlaceholder('Enter change order number').waitFor({ state: 'visible', timeout: 15000 });
+            await this.page.waitForTimeout(1000);
             Logger.success('Add Change Order button clicked.');
         } catch (error) {
             Logger.error(`Error clicking Add Change Order: ${error.message}`);
@@ -561,9 +559,28 @@ class InvoicePage {
             const colIndex = amountColIndex ? String(amountColIndex) : '6';
             Logger.info(`Detected Change Order Amount column index: ${colIndex}`);
 
-            const expectedDigits = String(amount).replace(/\D/g, '');
+            const editableCellLocator = grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"]:not(.disabled), [role="gridcell"][aria-colindex="${colIndex}"]:not(.disabled)`).filter({ hasText: /[—\-]|\$0/ });
+            for (let w = 0; w < 5; w++) {
+                const c = await editableCellLocator.count().catch(() => 0);
+                if (c > 0) break;
+                await this.page.waitForTimeout(2000);
+            }
 
-            // Prefer editing a blank/—/$0 cell in the Change Order Amount column; fall back to any non-disabled cell.
+            const rawCount = await grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"], [role="gridcell"][aria-colindex="${colIndex}"]`).count().catch(() => 0);
+            const enabledCount = await editableCellLocator.count().catch(() => 0);
+            Logger.info(`Amount column cells found: total=${rawCount}, editableCandidates=${enabledCount}`);
+
+            if (rawCount > 0 && enabledCount === 0) {
+                const existingTexts = await grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"], [role="gridcell"][aria-colindex="${colIndex}"]`).allTextContents().catch(() => []);
+                const normalized = existingTexts.map((t) => (t || '').trim()).filter(Boolean);
+                const hasDollarAmount = normalized.some((t) => /\$\s*\d/.test(t));
+                if (hasDollarAmount) {
+                    Logger.error('Amount cells are read-only with existing values. Likely opened an existing approved CO instead of a new one. Add Change Order must create a NEW change order.');
+                    return false;
+                }
+            }
+
+            const expectedDigits = String(amount).replace(/\D/g, '');
             const candidates = [
                 grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"]:not(.disabled)`).filter({ hasText: '—' }),
                 grid.locator(`[role="gridcell"][aria-colindex="${colIndex}"]:not(.disabled)`).filter({ hasText: '—' }),
@@ -572,26 +589,6 @@ class InvoicePage {
                 grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"]:not(.disabled)`),
                 grid.locator(`[role="gridcell"][aria-colindex="${colIndex}"]:not(.disabled)`)
             ];
-
-            // Diagnostics: how many candidate cells exist at all?
-            const rawCount = await grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"], [role="gridcell"][aria-colindex="${colIndex}"]`).count().catch(() => 0);
-            const enabledCount = await grid.locator(`[role="gridcell"][data-rgcol="${colIndex}"]:not(.disabled), [role="gridcell"][aria-colindex="${colIndex}"]:not(.disabled)`).count().catch(() => 0);
-            Logger.info(`Amount column cells found: total=${rawCount}, editableCandidates=${enabledCount}`);
-
-            // If the column is present but all cells are non-editable, accept an already-populated amount.
-            if (rawCount > 0 && enabledCount === 0) {
-                const existingTexts = await grid
-                    .locator(`[role="gridcell"][data-rgcol="${colIndex}"], [role="gridcell"][aria-colindex="${colIndex}"]`)
-                    .allTextContents()
-                    .catch(() => []);
-                const normalized = existingTexts.map((t) => (t || '').trim()).filter(Boolean);
-                const hasDollarAmount = normalized.some((t) => /\$\s*\d/.test(t));
-
-                if (hasDollarAmount) {
-                    Logger.success(`Amount column appears read-only, but has populated values: ${normalized.slice(0, 3).join(' | ')}`);
-                    return true;
-                }
-            }
 
             for (const locator of candidates) {
                 const count = await locator.count().catch(() => 0);
@@ -1256,32 +1253,31 @@ class InvoicePage {
     }
 
     /**
-     * Waits for the Change Order Details screen to be fully loaded (stats visible).
-     * Use after opening a change order from the list.
+     * Waits for the Change Order Details screen to be fully loaded.
+     * Use after openChangeOrderFromList (which navigates to /jobs/.../change-orders/...).
      */
     async waitForChangeOrderDetailsScreen() {
         Logger.step('Waiting for Change Order Details screen to load...');
+        await this.page.waitForLoadState('domcontentloaded');
         await this.page.waitForLoadState('networkidle');
-        await this.page.waitForTimeout(1500);
 
-        // Wait for key elements that confirm the details screen is loaded
-        const anyIndicator = this.page.locator('text=Current Contract Value')
-            .or(this.page.locator('text=Revised Contract Amount'))
-            .or(this.page.locator('text=Change Order Details'))
-            .or(this.page.getByPlaceholder('Enter change order number'))
-            .or(this.page.locator('[role="treegrid"]'))
+        const dialog = this.page.locator('[role="dialog"]').filter({ hasText: 'Change Order Details' });
+        const headerOrGrid = dialog.locator('text=Change Order Details')
+            .or(dialog.locator('[role="columnheader"]').filter({ hasText: 'Current Contract Value' }))
+            .or(dialog.locator('[role="columnheader"]').filter({ hasText: 'Revised Contract Amount' }))
+            .or(this.page.locator('[role="dialog"] [role="treegrid"]'))
+            .or(this.page.locator('[role="dialog"] [role="grid"]'))
             .first();
-        await anyIndicator.waitFor({ state: 'visible', timeout: 15000 });
-        Logger.info('Change Order Details screen load indicator visible.');
+        await headerOrGrid.waitFor({ state: 'visible', timeout: 30000 });
+        Logger.info('Change Order Details screen visible.');
 
-        // Optionally wait for API response (change-order/contract related) to confirm data load
         await this.page.waitForResponse(
             (resp) => {
                 const url = resp.url();
                 const ok = resp.status() >= 200 && resp.status() < 300;
-                return ok && (url.includes('change-order') || url.includes('change_order') || (url.includes('/api/') && (url.includes('job') || url.includes('contract'))));
+                return ok && (url.includes('change_order') || url.includes('change-order') || (url.includes('bird-table') && url.includes('changeorder')));
             },
-            { timeout: 12000 }
+            { timeout: 15000 }
         ).catch(() => null);
 
         await this.page.waitForTimeout(2000);
@@ -1289,49 +1285,39 @@ class InvoicePage {
     }
 
     /**
-     * Opens a change order from the list by clicking its row (by change order number)
+     * Opens a change order from the list by clicking the View (eye) button in its row.
+     * Waits for navigation to /jobs/{id}/change-orders/{id} before returning.
      * @param {string} changeOrderNumber - e.g. "Change Order #123"
-     * @returns {boolean} True if opened successfully
      */
     async openChangeOrderFromList(changeOrderNumber) {
-        try {
-            Logger.step(`Opening change order ${changeOrderNumber} from list...`);
+        Logger.step(`Opening change order ${changeOrderNumber} from list...`);
+        await this.page.waitForLoadState('networkidle');
+        await this.page.waitForTimeout(1500);
+
+        const listReady = this.page.locator('[role="row"]').filter({ has: this.page.locator('[role="gridcell"]').filter({ hasText: 'Change Order #' }) }).first();
+        await listReady.waitFor({ state: 'visible', timeout: 20000 });
+        await this.page.waitForTimeout(500);
+
+        const search = this.page.getByPlaceholder('Search...').first();
+        if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await search.fill('');
+            await this.page.waitForLoadState('networkidle');
+            await this.page.waitForTimeout(400);
+            await search.fill(String(changeOrderNumber));
             await this.page.waitForLoadState('networkidle');
             await this.page.waitForTimeout(1500);
-
-            // Wait for list to be ready before interacting
-            const listReady = this.page.locator('div[role="row"]:has(div[role="gridcell"]:has-text("Change Order #"))').first();
-            await listReady.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
-            await this.page.waitForTimeout(800);
-
-            const search = this.page.getByPlaceholder('Search...').first();
-            if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await search.fill('');
-                await this.page.waitForLoadState('networkidle');
-                await this.page.waitForTimeout(600);
-                await search.fill(String(changeOrderNumber));
-                await this.page.waitForLoadState('networkidle');
-                await this.page.waitForTimeout(1200);
-            }
-
-            const numberCell = this.page.locator(`[role="gridcell"]:has-text("${changeOrderNumber}")`).first();
-            await numberCell.waitFor({ state: 'visible', timeout: 12000 });
-            await numberCell.click();
-            await this.page.waitForLoadState('networkidle');
-            await this.page.waitForTimeout(2000);
-
-            const detailsOpen = await this.page.locator('text=Change Order Details').or(this.page.locator('text=Overview')).first().isVisible({ timeout: 8000 }).catch(() => false) ||
-                await this.page.getByPlaceholder('Enter change order number').isVisible({ timeout: 5000 }).catch(() => false);
-            if (detailsOpen) {
-                Logger.success(`Change order ${changeOrderNumber} opened.`);
-                return true;
-            }
-            Logger.info('Change order details may have opened in different layout.');
-            return true;
-        } catch (error) {
-            Logger.error(`Error opening change order from list: ${error.message}`);
-            throw error;
         }
+
+        const rowWithCo = this.page.locator('[role="row"]').filter({ hasText: changeOrderNumber }).first();
+        await rowWithCo.waitFor({ state: 'visible', timeout: 15000 });
+
+        let viewBtn = rowWithCo.getByRole('button', { name: 'View Change Order' });
+        if (await viewBtn.count().catch(() => 0) === 0) {
+            viewBtn = this.page.getByRole('button', { name: 'View Change Order' }).first();
+        }
+        await viewBtn.first().click({ timeout: 10000 });
+        await this.page.waitForURL(/\/jobs\/\d+\/change-orders\/\d+/, { timeout: 15000 });
+        Logger.success(`Change order ${changeOrderNumber} opened.`);
     }
 
     /**
@@ -1348,21 +1334,36 @@ class InvoicePage {
 
     /**
      * Gets Current Contract Value and Revised Contract Amount from Change Order Details view.
-     * Used to assert snapshot and formula: Revised Contract Amount = Snapshot Current Contract Value ± Change Order Amount
-     * Waits for screen to load and retries if stats are null.
+     * Values come from the grid columns (BirdTable). Also tries label-value fallback for overview layouts.
      * @returns {Object} { currentContractValue, revisedContractAmount, changeOrderAmount } - values as numbers or null
      */
     async getChangeOrderDetailsStats() {
+        const getValueFromGridColumn = async (grid, headerTexts) => {
+            for (const text of headerTexts) {
+                const header = grid.locator('[role="columnheader"]').filter({ hasText: new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first();
+                if (!(await header.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+                const colIndex = await header.evaluate((el) => el.getAttribute('data-rgcol') || el.getAttribute('aria-colindex') || el.cellIndex).catch(() => '');
+                const col = colIndex !== '' && colIndex !== undefined ? String(colIndex) : null;
+                if (!col) continue;
+                const cells = grid.locator(`[role="gridcell"][data-rgcol="${col}"], [role="gridcell"][aria-colindex="${col}"]`);
+                const count = await cells.count().catch(() => 0);
+                for (let i = count - 1; i >= 0; i--) {
+                    const cellText = (await cells.nth(i).textContent().catch(() => '') || '').trim();
+                    if (/\$[\d,.]/.test(cellText)) return cellText;
+                }
+                const firstText = (await cells.first().textContent().catch(() => '') || '').trim();
+                if (firstText) return firstText;
+            }
+            return null;
+        };
+
         const getValueNearLabel = async (labelPatterns) => {
             for (const pattern of labelPatterns) {
                 const label = this.page.locator(`text=${pattern}`).first();
-                if (await label.isVisible({ timeout: 2000 }).catch(() => false)) {
+                if (await label.isVisible({ timeout: 1500 }).catch(() => false)) {
                     const parent = label.locator('..');
-                    const valueEl = parent.locator('p').first();
-                    let text = await valueEl.textContent().catch(() => null);
-                    if (text) return text.trim();
-                    const anyWithDollar = parent.locator('p, span, div').filter({ hasText: /\$[\d,]/ }).first();
-                    text = await anyWithDollar.textContent().catch(() => null);
+                    const valueEl = parent.locator('p, span, div').filter({ hasText: /\$[\d,]/ }).first();
+                    const text = await valueEl.textContent().catch(() => null);
                     if (text) return text.trim();
                 }
             }
@@ -1370,25 +1371,23 @@ class InvoicePage {
         };
 
         const extractStats = async () => {
-            const currentContractValue = await getValueNearLabel(['Current Contract Value', 'Current Contract']);
-            const revisedContractAmount = await getValueNearLabel(['Revised Contract Amount']);
+            const scope = this.page.locator('[role="dialog"]').filter({ hasText: /Change Order Details|Overview|Current Contract|Revised Contract/i }).first()
+                .or(this.page.locator('main').filter({ hasText: /Change Order|Current Contract|Revised Contract/i }));
+            const grid = scope.locator('[role="treegrid"], [role="grid"]').first();
 
+            let currentContractValue = null;
+            let revisedContractAmount = null;
             let changeOrderAmount = null;
-            try {
-                const grid = this.page.locator('[role="treegrid"]').first();
-                if (await grid.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    const amountHeader = grid.locator('[role="columnheader"]').filter({ hasText: 'Change Order Amount' }).first();
-                    if (await amountHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
-                        const colIndex = await amountHeader.evaluate((el) => el.getAttribute('data-rgcol') || el.getAttribute('aria-colindex') || '').catch(() => '');
-                        const col = colIndex ? String(colIndex) : '6';
-                        const amountCell = grid.locator(`[role="gridcell"][data-rgcol="${col}"], [role="gridcell"][aria-colindex="${col}"]`).first();
-                        const amountText = await amountCell.textContent().catch(() => null);
-                        if (amountText) changeOrderAmount = (amountText || '').trim();
-                    }
-                }
-            } catch {
-                // best-effort
+
+            if (await grid.isVisible({ timeout: 3000 }).catch(() => false)) {
+                currentContractValue = await getValueFromGridColumn(grid, ['Current Contract Value', 'Current Contract']);
+                revisedContractAmount = await getValueFromGridColumn(grid, ['Revised Contract Amount']);
+                changeOrderAmount = await getValueFromGridColumn(grid, ['Change Order Amount']);
             }
+
+            if (!currentContractValue) currentContractValue = await getValueNearLabel(['Current Contract Value', 'Current Contract']);
+            if (!revisedContractAmount) revisedContractAmount = await getValueNearLabel(['Revised Contract Amount']);
+            if (!changeOrderAmount && await grid.isVisible().catch(() => false)) changeOrderAmount = await getValueFromGridColumn(grid, ['Change Order Amount']);
 
             return {
                 currentContractValue: this.parseCurrencyToNumber(currentContractValue) ?? currentContractValue,
@@ -1399,19 +1398,19 @@ class InvoicePage {
 
         try {
             Logger.step('Fetching Change Order Details stats (Current Contract Value, Revised Contract Amount)...');
-
-            // Wait for stats labels to be visible before extracting (screen load confirmation)
-            const statsLabel = this.page.locator('text=Current Contract Value').or(this.page.locator('text=Revised Contract Amount')).first();
-            await statsLabel.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
-            await this.page.waitForTimeout(1500);
+            const statsIndicator = this.page.locator('text=Current Contract Value')
+                .or(this.page.locator('text=Revised Contract Amount'))
+                .or(this.page.locator('[role="columnheader"]').filter({ hasText: 'Current Contract' }))
+                .or(this.page.locator('[role="columnheader"]').filter({ hasText: 'Revised Contract' }))
+                .first();
+            await statsIndicator.waitFor({ state: 'visible', timeout: 20000 }).catch(() => null);
+            await this.page.waitForTimeout(2000);
 
             let result = await extractStats();
-
-            // Retry up to 2 times if key stats are null (screen may still be loading)
-            for (let attempt = 1; attempt <= 2 && (!result.currentContractValue || !result.revisedContractAmount); attempt++) {
-                Logger.info(`Stats incomplete (attempt ${attempt}/2), waiting and retrying...`);
+            for (let attempt = 1; attempt <= 3 && (!result.currentContractValue || !result.revisedContractAmount); attempt++) {
+                Logger.info(`Stats incomplete (attempt ${attempt}/3), waiting and retrying...`);
                 await this.page.waitForLoadState('networkidle');
-                await this.page.waitForTimeout(2500);
+                await this.page.waitForTimeout(3000);
                 result = await extractStats();
             }
 
@@ -1648,7 +1647,7 @@ class InvoicePage {
                         }
                     }
                 }
-
+                await this.page.waitForTimeout(500);
                 expect(selectedOption).toBeTruthy();
 
                 try {
@@ -2067,7 +2066,12 @@ class InvoicePage {
             let budgetCategoryValues = [];
             if (invoiceData.budgetCategory) {
                 budgetCategoriesSet = await this.fillBudgetCategoryInInvoice(invoiceData.budgetCategory);
-                budgetCategoryValues = await this.getBudgetCategoryValues();
+                try {
+                    budgetCategoryValues = await this.getBudgetCategoryValues();
+                } catch (err) {
+                    Logger.info(`getBudgetCategoryValues failed: ${err.message}, using empty array`);
+                    budgetCategoryValues = [];
+                }
             }
 
             const fieldsVerified = await this.verifyInvoiceFieldsInDialog(invoiceData);

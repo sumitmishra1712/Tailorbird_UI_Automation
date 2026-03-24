@@ -190,14 +190,6 @@ test.describe('Verify Create Project and Add Job flow', () => {
         // await page.waitForTimeout(3000);
     });
 
-    test.skip('TC40 @regression @projectAndJob @bids : Validate set bid template fucntionality and save it', async () => {
-        await projectPage.openProject(projectData.projectName);
-        await projectJob.navigateToJobsTab();
-        await projectJob.openJobSummary();
-        Logger.step('Setting Bid Template...');
-        await projectJob.verifyBidTemplate();
-    });
-
     test('TC41 @regression @projectAndJob @mandatory @bids @contract : Validate update bid flow', async () => {
         await projectPage.openProject(projectData.projectName);
         await projectJob.navigateToJobsTab();

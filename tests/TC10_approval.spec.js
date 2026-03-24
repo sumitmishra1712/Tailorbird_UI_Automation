@@ -465,13 +465,13 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
             // await page.waitForTimeout(800);
 
             try {
-                await approvalJob.addApprover();
+                await approvalJob.addThreeApprovers();
             } catch (e) {
-                Logger.info('Approver skipped - dropdown overlay issue');
+                Logger.info('Approvers skipped - dropdown overlay issue');
             }
 
             await approvalJob.fillAmount(5000);
-            await approvalJob.checkAlwaysRequired();
+            await approvalJob.checkAlwaysRequiredCount(3);
             await approvalJob.submitCreateTemplate();
             Logger.info('Template created: ' + templateName);
 
@@ -619,7 +619,7 @@ test.describe('Approval Templates - Comprehensive E2E Tests', () => {
     });
 
     test('@approval @regression TC117 Approval Templates – Verify user can initiate creation flow for all approval template types and validate template-specific behavior', async () => {
-        test.setTimeout(240000);
+        test.setTimeout(120000);
         // Create a new property for this test
         currentPropertyName = await createNewProperty(page);
         Logger.info('Created property for template: ' + currentPropertyName);

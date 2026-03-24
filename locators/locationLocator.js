@@ -3,11 +3,12 @@ module.exports = {
         // View details
     viewDetailsBtn: 'button[title="View Details"], button:has(svg.lucide-eye)',
 
-    // Location Tab
-    locationsTab: 'button:has-text("Locations")',
+    // Location Tab - scope to property details
+    locationsTab: 'button[role="tab"]:has-text("Locations")',
+    locationsTabpanel: 'role=tabpanel[name="Locations"]',
 
-    // Add Site / Add Data
-    addButton: 'button[data-testid="bt-add-row-menu"]:visible',
+    // Add Site / Add Data - use data-testid (most reliable)
+    addButton: '[data-testid="bt-add-row-menu"]',
     addSite: '[data-testid="bt-add-row"]',
     addDataOption: 'role=menuitem[name="Add Data"]',
     addUnitOption: 'role=menuitem[name="Add Unit"]',

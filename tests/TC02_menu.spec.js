@@ -15,8 +15,7 @@ test.use({
 test.beforeEach(async ({ page: testPage }) => {
     page = testPage;
     Logger.info(`Navigating to dashboard: ${process.env.DASHBOARD_URL}`);
-    await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
-    await page.waitForLoadState('networkidle');
+    await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load', timeout: 60000 });
     Logger.info('Dashboard loaded successfully.');
 
     page.on('domcontentloaded', async () => {
@@ -56,6 +55,7 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
     });
 
     test('TC04 @sanity @regression Verify all menu navigation', async () => {
+        test.setTimeout(360000); // 6 min - CI with 4 workers is slower due to resource contention
         const actualLabels = await helper.getLeftPanelLabels(page);
         expect(actualLabels.length).toBeGreaterThan(0);
 
@@ -69,8 +69,11 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
             let navigated = false;
 
             for (let attempt = 1; attempt <= 2 && !navigated; attempt++) {
-                await page.goto(process.env.DASHBOARD_URL, { waitUntil: 'load' });
-                await page.waitForLoadState('networkidle');
+                await page.goto(process.env.DASHBOARD_URL, {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 60000
+                });
+                await page.waitForLoadState('load');
                 await page.waitForTimeout(attempt === 1 ? 300 : 800);
 
                 let menuLocator = page.locator('nav a.mantine-NavLink-root').filter({ hasText: label }).first();
@@ -104,14 +107,14 @@ test.describe('Tailorbird Left Panel Flow - Modular', () => {
                 await page.waitForTimeout(200);
                 try {
                     await Promise.all([
-                        page.waitForURL(urlRegex, { timeout: 20000 }),
+                        page.waitForURL(urlRegex, { timeout: 40000 }),
                         menuLocator.click({ timeout: 8000, force: true })
                     ]);
                     navigated = true;
                 } catch (e) {
                     if (attempt === 2) {
                         if ((label === 'Files' || label === 'Images') && url) {
-                            await page.goto(new URL(url, process.env.DASHBOARD_URL).href, { waitUntil: 'networkidle' });
+                            await page.goto(new URL(url, process.env.DASHBOARD_URL).href, { waitUntil: 'load', timeout: 60000 });
                             navigated = true;
                         } else {
                             throw e;

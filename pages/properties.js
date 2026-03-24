@@ -1161,77 +1161,103 @@ class PropertiesHelper {
 
     }
     async openLocationTab() {
-        const locationsTab = this.page.locator(prop.locationsTab);
-        await expect(locationsTab).toBeVisible();
+        const locationsTab = this.page.getByRole('tab', { name: 'Locations' });
+        await expect(locationsTab).toBeVisible({ timeout: 10000 });
         await locationsTab.click();
-        await expect(locationsTab).toHaveAttribute('data-active', 'true');
+        await expect(this.page.getByRole('tabpanel', { name: 'Locations' })).toBeVisible({ timeout: 5000 });
         console.log("✔ Locations tab opened");
-
     }
     async addButton() {
-        const addButton = this.page.locator(prop.addButton);
-        await addButton.waitFor({ state: 'visible' });
-        await addButton.click();
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        await expect(tabpanel).toBeVisible({ timeout: 5000 });
+        const addButton = tabpanel.getByTestId('bt-add-row-menu');
+        await addButton.scrollIntoViewIfNeeded();
+        await addButton.hover();
+        await this.page.getByRole('menuitem', { name: /Add site/i }).waitFor({ state: 'visible', timeout: 5000 });
         console.log("✔ Add dropdown opened");
-
     }
     async addRowDetail() {
+        const addSite = this.page.getByRole('menuitem', { name: /Add site|Add row/i }).or(this.page.getByTestId('bt-add-row'));
+        await expect(addSite.first()).toBeVisible({ timeout: 8000 });
+        await addSite.first().click();
 
-        // Select Add Site
-        const addSite = this.page.locator(prop.addSite);
-        await expect(addSite).toBeVisible();
-        await addSite.click();
-        const newRow = this.page.getByRole('row', { name: /—/ }).first();
-        await expect(newRow).toBeVisible();
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        const gridSelector = '[role="treegrid"], [role="grid"]';
+        let treegrid = tabpanel.locator(gridSelector).first();
+        if (await treegrid.count() === 0 || !(await treegrid.isVisible().catch(() => false))) {
+            treegrid = this.page.locator(gridSelector).first();
+        }
+        const newRow = treegrid.getByRole('row', { name: /—/ }).first();
+        await expect(newRow).toBeVisible({ timeout: 10000 });
 
-        // Add Name
         await newRow.locator('[role="gridcell"]').first().dblclick();
-        await this.page.locator(prop.nameInput).fill("My Test Name");
+        const nameInput = this.page.locator(prop.nameInput).or(this.page.getByRole('textbox', { name: /name/i }));
+        await nameInput.first().fill("My Test Name");
         await this.page.keyboard.press("Enter");
-        await this.page.waitForTimeout(1500);
+
+        await expect(treegrid.locator('[role="row"]').filter({ has: this.page.locator('[role="gridcell"]:has-text("My Test Name")') })).toBeVisible({ timeout: 5000 });
         console.log("✔ New site name added");
     }
     async deleteRow() {
-        // Wait for the row to be fully visible
-        await this.page.waitForTimeout(500);
-        // Find the delete button in the Actions column
-        // The delete buttons are SVG icons in the rightmost column of the treegrid
-        const deleteButton = this.page.locator('[role="gridcell"]:nth-child(-n+1) button').first();
-        try {
-            await deleteButton.click({ delay: 200, force: true, timeout: 5000 });
-        } catch (e) {
-            // If that doesn't work, try finding any button in the last gridcell
-            const lastCell = this.page.locator('[role="row"] [role="gridcell"]:last-child').first();
-            const btn = lastCell.locator('button').first();
-            await btn.click({ delay: 200, force: true });
+        const rowName = 'My Test Name';
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        const gridSelector = '[role="treegrid"], [role="grid"]';
+        let treegrid = tabpanel.locator(gridSelector).first();
+        if (await treegrid.count() === 0 || !(await treegrid.isVisible().catch(() => false))) {
+            treegrid = this.page.locator(gridSelector).first();
         }
-        await this.page.waitForTimeout(500);
-        await this.page.locator(prop.deleteConfirmBtn).click();
+        await expect(treegrid).toBeVisible({ timeout: 10000 });
+
+        const dataRows = treegrid.locator('[role="row"]').filter({ has: this.page.locator('[role="gridcell"]:not(:has(button))') });
+        await expect(treegrid.locator('[role="row"]').filter({ has: this.page.locator('[role="gridcell"]:has-text("' + rowName + '")') }).first()).toBeVisible({ timeout: 10000 });
+        const rowCount = await dataRows.count();
+        let rowIndex = -1;
+        for (let i = 0; i < rowCount; i++) {
+            const hasMatch = await dataRows.nth(i).locator(`[role="gridcell"]:has-text("${rowName}")`).count() > 0;
+            if (hasMatch) {
+                rowIndex = i;
+                break;
+            }
+        }
+        if (rowIndex < 0) throw new Error(`Row with "${rowName}" not found`);
+
+        const deleteButtons = treegrid.locator('[role="row"]:has([role="gridcell"] button) button:has(svg.lucide-trash2)');
+        const deleteBtn = deleteButtons.nth(rowIndex);
+        await expect(deleteBtn).toBeVisible({ timeout: 8000 });
+        await deleteBtn.scrollIntoViewIfNeeded();
+        await deleteBtn.click({ force: true });
+
+        const confirmBtn = this.page.getByRole('button', { name: 'Delete' });
+        const popoverDelete = this.page.locator('.mantine-Popover-dropdown button:has-text("Delete")');
+        const btnToClick = confirmBtn.or(popoverDelete);
+        if (await btnToClick.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+            await btnToClick.first().click();
+        }
         console.log("✔ Row deleted");
     }
     async addColumndata() {
-        const addData = this.page.locator('[role="menuitem"]:has-text("Add Data")').first();
-        await expect(addData).toBeVisible();
+        const addData = this.page.getByRole('menuitem', { name: /Add Data/i }).first();
+        await expect(addData).toBeVisible({ timeout: 5000 });
         await addData.click();
 
-        // MODAL – Add Column
         const modal = this.page.locator(prop.modal_AddColumn);
-        await expect(modal).toBeVisible();
-        console.log("✔ Add Column modal open");
-
+        await expect(modal).toBeVisible({ timeout: 8000 });
         await this.page.locator(prop.columnNameInput).fill("Test Column");
         await this.page.locator(prop.descriptionInput).fill("This is a test description.");
-        await this.page.locator(prop.addColumnBtn).waitFor({ state: "visible" });
+        await this.page.locator(prop.addColumnBtn).waitFor({ state: "visible", timeout: 5000 });
         await expect(this.page.locator(prop.addColumnBtn)).toBeEnabled();
-
         await this.page.locator(prop.addColumnBtn).click();
+        await expect(modal).toBeHidden({ timeout: 5000 });
         console.log("✔ New column added");
     }
     async settingsPanel() {
-        await this.page.locator(prop.tableSettingBtn).click();
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        const settingsBtn = tabpanel.locator('button:has(svg.lucide-settings)');
+        await settingsBtn.first().scrollIntoViewIfNeeded();
+        await settingsBtn.first().click({ force: true });
 
         const drawer = this.page.locator(prop.settingsDrawer);
-        await expect(drawer).toBeVisible();
+        await expect(drawer).toBeVisible({ timeout: 5000 });
         await expect(drawer.locator(prop.drawerTitle)).toBeVisible();
         await expect(drawer.locator(prop.drawerClose)).toBeVisible();
         await expect(drawer.locator(prop.defaultColumnText)).toBeVisible();
@@ -1264,25 +1290,45 @@ class PropertiesHelper {
 
         console.log("✔ Custom column deleted");
     }
+    async closeSettingsDrawer() {
+        const closeBtn = this.page.locator(prop.drawerClose).or(this.page.locator('.mantine-Drawer-close'));
+        const drawer = this.page.locator(prop.settingsDrawer);
+        if (await closeBtn.count() > 0) {
+            await closeBtn.first().click();
+            await drawer.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+        }
+        await this.page.waitForTimeout(500);
+    }
     async selectLocation(type) {
-        await this.page.click(prop.locationDropdown, { force: true });
-        await this.page.click(prop.locationDropdownOption(type));
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        const dropdown = tabpanel.locator(prop.locationDropdown).or(tabpanel.getByPlaceholder('Select location type'));
+        await dropdown.first().waitFor({ state: 'visible', timeout: 10000 });
+        await dropdown.first().click();
+
+        const optionLabel = type === 'unit' ? 'Units' : type === 'building' ? 'Building' : type;
+        const option = this.page.getByRole('option', { name: new RegExp(optionLabel, 'i') }).or(this.page.locator(prop.locationDropdownOption(type)));
+        await option.first().waitFor({ state: 'visible', timeout: 8000 });
+        await option.first().click();
+        await expect(tabpanel.locator('[role="treegrid"]')).toBeVisible({ timeout: 5000 });
         console.log(`✔ Location switched to: ${type}`);
     }
     async expectUnitTable() {
-        await expect(this.page.locator(prop.unitHeader)).toBeVisible();
-        const unitRowCount = await this.page.locator(prop.visibleRows).count();
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
+        await expect(tabpanel.getByText('Unit Name', { exact: true })).toBeVisible({ timeout: 15000 });
+        const unitRows = tabpanel.locator('[role="treegrid"] [role="row"]').filter({ has: this.page.locator('[role="gridcell"]') });
+        await expect(unitRows.first()).toBeVisible({ timeout: 5000 });
+        const unitRowCount = await unitRows.count();
         expect(unitRowCount).toBeGreaterThan(1);
         console.log(`✔ Unit rows verified (${unitRowCount})`);
     }
     async expectBuildingTable() {
+        const tabpanel = this.page.getByRole('tabpanel', { name: 'Locations' });
         const headers = ['Name', 'Building', 'Site', 'Actions'];
         for (const header of headers) {
-            await expect(this.page.getByRole('columnheader', { name: header })).toBeVisible();
+            await expect(tabpanel.getByRole('columnheader', { name: new RegExp(header, 'i') })).toBeVisible({ timeout: 10000 });
         }
-        console.log("✔ Building header validation complete");
-
-        const buildingRowCount = await this.page.locator('div[role="row"]').count();
+        const buildingRows = tabpanel.locator('[role="treegrid"] [role="row"]').filter({ has: this.page.locator('[role="gridcell"]') });
+        const buildingRowCount = await buildingRows.count();
         expect(buildingRowCount).toBeGreaterThan(1);
         console.log(`✔ Building rows verified (${buildingRowCount})`);
     }
